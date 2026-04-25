@@ -1,0 +1,285 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum FamilyMode {
+  LOCAL
+  CLOUD
+}
+
+enum AccountStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum MemberStatus {
+  ACTIVE
+  DISABLED
+  LEFT
+}
+
+enum TaskType {
+  LIGHT
+  CORE
+  EPIC
+}
+
+enum TaskRuleStatus {
+  ACTIVE
+  DISABLED
+  ARCHIVED
+}
+
+enum EventStatus {
+  PENDING
+  CONFIRMED
+  REVERTED
+}
+
+enum VerdictSource {
+  AI
+  FALLBACK_TEMPLATE
+}
+
+enum VerdictStatus {
+  SUCCESS
+  FAILED
+  FALLBACK
+}
+
+enum AuditAction {
+  CREATE_MEMBER
+  UPDATE_MEMBER
+  DISABLE_MEMBER
+  DELETE_MEMBER
+  CREATE_TASK_RULE
+  UPDATE_TASK_RULE
+  DISABLE_TASK_RULE
+  RESET_RULES
+  UPDATE_PREFERENCES
+  CLEAR_CURRENT_WEEK
+  DELETE_ARCHIVE
+  CHANGE_PASSWORD
+}
+
+model FamilyAccount {
+  id            String          @id @default(uuid()) @db.Uuid
+  accountName   String          @unique(map: "family_accounts_account_name_key") @map("account_name") @db.VarChar(50)
+  passwordHash  String          @map("password_hash") @db.VarChar(255)
+  passwordAlgo  String          @map("password_algo") @db.VarChar(30)
+  status        AccountStatus   @default(ACTIVE)
+  lastLoginAt   DateTime?       @map("last_login_at") @db.Timestamptz(6)
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  family        Family?
+  auditLogs     AuditLog[]
+
+  @@index([createdAt], map: "family_accounts_created_at_idx")
+  @@map("family_accounts")
+}
+
+model Family {
+  id            String          @id @default(uuid()) @db.Uuid
+  accountId     String          @unique(map: "families_account_id_key") @map("account_id") @db.Uuid
+  name          String          @db.VarChar(80)
+  mode          FamilyMode
+  timezone      String          @db.VarChar(50)
+  currentWeekId String          @map("current_week_id") @db.VarChar(20)
+  version       Int             @default(1)
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account       FamilyAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  sessions      FamilySession[]
+  members       Member[]
+  taskRules     TaskRule[]
+  taskEvents    TaskEvent[]
+  weeklyArchives WeeklyArchive[]
+  verdictRecords VerdictRecord[]
+  preference    Preference?
+  auditLogs     AuditLog[]
+
+  @@index([currentWeekId], map: "families_current_week_id_idx")
+  @@map("families")
+}
+
+model FamilySession {
+  id               String    @id @default(uuid()) @db.Uuid
+  familyId         String    @map("family_id") @db.Uuid
+  refreshTokenHash String    @map("refresh_token_hash") @db.VarChar(255)
+  deviceLabel      String?   @map("device_label") @db.VarChar(100)
+  userAgent        String?   @map("user_agent")
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(6)
+  lastUsedAt       DateTime? @map("last_used_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  family           Family    @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@index([familyId], map: "family_sessions_family_id_idx")
+  @@index([expiresAt], map: "family_sessions_expires_at_idx")
+  @@map("family_sessions")
+}
+
+model Member {
+  id              String       @id @default(uuid()) @db.Uuid
+  familyId        String       @map("family_id") @db.Uuid
+  nickname        String       @db.VarChar(30)
+  avatarType      String       @map("avatar_type") @db.VarChar(20)
+  avatarUrl       String?      @map("avatar_url")
+  avatarValue     String?      @map("avatar_value") @db.VarChar(20)
+  cardColor       String       @map("card_color") @db.VarChar(20)
+  sortOrder       Int          @default(0) @map("sort_order")
+  status          MemberStatus @default(ACTIVE)
+  joinedWeekId    String       @map("joined_week_id") @db.VarChar(20)
+  leftWeekId      String?      @map("left_week_id") @db.VarChar(20)
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  family          Family       @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  taskEvents      TaskEvent[]
+
+  @@unique([familyId, nickname], map: "members_family_id_nickname_key")
+  @@index([familyId, status], map: "members_family_id_status_idx")
+  @@index([familyId, sortOrder], map: "members_family_id_sort_order_idx")
+  @@map("members")
+}
+
+model TaskRule {
+  id            String         @id @default(uuid()) @db.Uuid
+  familyId      String         @map("family_id") @db.Uuid
+  taskType      TaskType       @map("task_type")
+  label         String         @db.VarChar(50)
+  scoreDelta    Int            @map("score_delta")
+  sortOrder     Int            @default(0) @map("sort_order")
+  isPinned      Boolean        @default(false) @map("is_pinned")
+  status        TaskRuleStatus @default(ACTIVE)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  family         Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  taskEvents     TaskEvent[]
+
+  @@unique([familyId, taskType, label], map: "task_rules_family_id_task_type_label_key")
+  @@index([familyId, status], map: "task_rules_family_id_status_idx")
+  @@index([familyId, taskType, sortOrder], map: "task_rules_family_id_task_type_sort_order_idx")
+  @@map("task_rules")
+}
+
+model TaskEvent {
+  id                     String       @id @default(uuid()) @db.Uuid
+  familyId               String       @map("family_id") @db.Uuid
+  memberId               String       @map("member_id") @db.Uuid
+  taskRuleId             String?      @map("task_rule_id") @db.Uuid
+  weekId                 String       @map("week_id") @db.VarChar(20)
+  taskTypeSnapshot       TaskType     @map("task_type_snapshot")
+  taskLabelSnapshot      String       @map("task_label_snapshot") @db.VarChar(50)
+  scoreDeltaSnapshot     Int          @map("score_delta_snapshot")
+  memberNicknameSnapshot String       @map("member_nickname_snapshot") @db.VarChar(30)
+  clientEventId          String       @map("client_event_id") @db.VarChar(100)
+  undoToken              String       @map("undo_token") @db.VarChar(100)
+  undoExpiresAt          DateTime     @map("undo_expires_at") @db.Timestamptz(6)
+  status                 EventStatus
+  revertedAt             DateTime?    @map("reverted_at") @db.Timestamptz(6)
+  createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  confirmedAt            DateTime?    @map("confirmed_at") @db.Timestamptz(6)
+
+  family                 Family       @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  member                 Member       @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  taskRule               TaskRule?    @relation(fields: [taskRuleId], references: [id], onDelete: SetNull)
+
+  @@unique([familyId, clientEventId], map: "task_events_family_id_client_event_id_key")
+  @@unique([undoToken], map: "task_events_undo_token_key")
+  @@index([familyId, weekId], map: "task_events_family_id_week_id_idx")
+  @@index([familyId, status, createdAt], map: "task_events_family_id_status_created_at_idx")
+  @@index([familyId, memberId, weekId], map: "task_events_family_id_member_id_week_id_idx")
+  @@index([weekId, createdAt], map: "task_events_week_id_created_at_idx")
+  @@map("task_events")
+}
+
+model WeeklyArchive {
+  id            String          @id @default(uuid()) @db.Uuid
+  familyId      String          @map("family_id") @db.Uuid
+  weekId        String          @map("week_id") @db.VarChar(20)
+  startAt       DateTime        @map("start_at") @db.Timestamptz(6)
+  endAt         DateTime        @map("end_at") @db.Timestamptz(6)
+  totalEvents   Int             @map("total_events")
+  totalScore    Int             @map("total_score")
+  summaryJson   Json            @map("summary_json")
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  family         Family         @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  verdictRecords VerdictRecord[]
+
+  @@unique([familyId, weekId], map: "weekly_archives_family_id_week_id_key")
+  @@index([familyId, weekId], map: "weekly_archives_family_id_week_id_idx")
+  @@index([createdAt], map: "weekly_archives_created_at_idx")
+  @@map("weekly_archives")
+}
+
+model VerdictRecord {
+  id               String         @id @default(uuid()) @db.Uuid
+  familyId         String         @map("family_id") @db.Uuid
+  weekId           String         @map("week_id") @db.VarChar(20)
+  archiveId        String?        @map("archive_id") @db.Uuid
+  persona          String         @db.VarChar(50)
+  styleProfileJson Json           @map("style_profile_json")
+  source           VerdictSource
+  status           VerdictStatus
+  content          String
+  inputSnapshotJson Json          @map("input_snapshot_json")
+  safetyStatus     String?        @map("safety_status") @db.VarChar(30)
+  generatedAt      DateTime       @map("generated_at") @db.Timestamptz(6)
+
+  family           Family         @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  archive          WeeklyArchive? @relation(fields: [archiveId], references: [id], onDelete: SetNull)
+
+  @@index([familyId, weekId, generatedAt(sort: Desc)], map: "verdict_records_family_id_week_id_generated_at_idx")
+  @@map("verdict_records")
+}
+
+model Preference {
+  id                   String   @id @default(uuid()) @db.Uuid
+  familyId             String   @unique(map: "preferences_family_id_key") @map("family_id") @db.Uuid
+  defaultFullscreen    Boolean  @default(false) @map("default_fullscreen")
+  soundEnabled         Boolean  @default(false) @map("sound_enabled")
+  motionEnabled        Boolean  @default(true) @map("motion_enabled")
+  fontScale            String   @map("font_scale") @db.VarChar(20)
+  themeStyle           String   @map("theme_style") @db.VarChar(30)
+  logSpeed             String   @map("log_speed") @db.VarChar(20)
+  cardDensity          String   @map("card_density") @db.VarChar(20)
+  idleReminderEnabled  Boolean  @default(true) @map("idle_reminder_enabled")
+  verdictPersona       String   @map("verdict_persona") @db.VarChar(50)
+  verdictToxicityLevel Int      @default(5) @map("verdict_toxicity_level")
+  allowAttack          Boolean  @default(true) @map("allow_attack")
+  allowHumiliation     Boolean  @default(true) @map("allow_humiliation")
+  allowLabeling        Boolean  @default(true) @map("allow_labeling")
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  family               Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@map("preferences")
+}
+
+model AuditLog {
+  id                String       @id @default(uuid()) @db.Uuid
+  familyId          String       @map("family_id") @db.Uuid
+  action            AuditAction
+  operatorAccountId String       @map("operator_account_id") @db.Uuid
+  targetType        String?      @map("target_type") @db.VarChar(30)
+  targetId          String?      @map("target_id") @db.Uuid
+  beforeJson        Json?        @map("before_json")
+  afterJson         Json?        @map("after_json")
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  family          Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  operatorAccount FamilyAccount @relation(fields: [operatorAccountId], references: [id], onDelete: Restrict)
+
+  @@index([familyId, createdAt(sort: Desc)], map: "audit_logs_family_id_created_at_idx")
+  @@index([familyId, action], map: "audit_logs_family_id_action_idx")
+  @@map("audit_logs")
+}

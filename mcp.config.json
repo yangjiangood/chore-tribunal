@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "node",
+      "args": [
+        "./node_modules/@modelcontextprotocol/server-postgres/dist/index.js"
+      ],
+      "env": {
+        "POSTGRES_CONNECTION_STRING": "postgresql://postgres:123456@localhost:5432/tribunal",
+        "POSTGRES_READ_ONLY": "false"
+      }
+    }
+  }
+}
