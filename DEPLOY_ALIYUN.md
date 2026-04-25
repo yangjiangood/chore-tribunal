@@ -1,35 +1,44 @@
 # 阿里云 Docker 部署
 
-## 1. 服务器准备
+## 一键部署
 
-- 阿里云安全组放行 `80` 端口
-- 服务器已安装 `Docker` 和 `Docker Compose`
-- 把项目代码上传到服务器，例如 `/srv/chore-tribunal`
-
-## 2. 配置环境变量
-
-在项目根目录执行：
+首次部署：
 
 ```bash
-cp .env.prod.example .env.prod
+git clone https://github.com/yangjiangood/chore-tribunal.git
+cd chore-tribunal
+bash deploy.sh aliyun
 ```
 
-然后编辑 `.env.prod`，至少改这几项：
-
-- `POSTGRES_PASSWORD`
-- `JWT_SECRET`
-- `LLM_PROVIDER`
-- 对应模型厂商的 API Key，例如 `DASHSCOPE_API_KEY`
-
-## 3. 启动服务
-
-在项目根目录执行：
+如果你要直接带阿里云百炼 Key：
 
 ```bash
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+DASHSCOPE_API_KEY=你的Key bash deploy.sh aliyun
 ```
 
-## 4. 查看状态
+如果你要直接带 DeepSeek Key：
+
+```bash
+DEEPSEEK_API_KEY=你的Key bash deploy.sh deepseek
+```
+
+脚本会自动做这些事：
+
+- 自动生成 `.env.prod`
+- 自动生成 `POSTGRES_PASSWORD`
+- 自动生成 `JWT_SECRET`
+- 自动执行 `docker compose up -d --build`
+
+## 一键更新
+
+以后更新代码：
+
+```bash
+cd /srv/chore-tribunal
+bash update.sh
+```
+
+## 手动查看状态
 
 ```bash
 docker compose --env-file .env.prod -f docker-compose.prod.yml ps
@@ -37,57 +46,47 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f backend
 docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f frontend
 ```
 
-启动成功后，直接访问：
+## 访问地址
+
+默认端口是 `80`，直接访问：
 
 ```text
-http://你的服务器IP
+http://你的服务器公网IP
 ```
 
-如果你改了 `APP_PORT`，就访问对应端口。
-
-## 5. 首次初始化数据
-
-如果你需要手动执行种子数据：
+## 首次补种子数据
 
 ```bash
 docker compose --env-file .env.prod -f docker-compose.prod.yml exec backend pnpm db:seed
 ```
 
-数据库迁移会在 `backend` 容器启动时自动执行，不需要额外手跑。
+## 如果你想自定义环境变量
 
-## 6. 更新项目
-
-以后更新代码，进入项目目录后执行：
+可以在执行前直接带上：
 
 ```bash
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+APP_PORT=8080 POSTGRES_PASSWORD=你的数据库密码 JWT_SECRET=你的JWT密钥 DASHSCOPE_API_KEY=你的Key bash deploy.sh aliyun
 ```
 
-## 7. 常用命令
+支持的变量包括：
 
-停止：
+- `APP_PORT`
+- `POSTGRES_DB`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `JWT_SECRET`
+- `LLM_PROVIDER`
+- `LLM_BASE_URL`
+- `LLM_API_KEY`
+- `LLM_MODEL`
+- `DASHSCOPE_API_KEY`
+- `DEEPSEEK_API_KEY`
+- `MOONSHOT_API_KEY`
+- `ZAI_API_KEY`
 
-```bash
-docker compose --env-file .env.prod -f docker-compose.prod.yml down
-```
-
-只重启后端：
-
-```bash
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build backend
-```
-
-查看数据库容器日志：
-
-```bash
-docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f db
-```
-
-## 8. 当前部署结构
+## 当前部署结构
 
 - `frontend`: Nginx 托管前端静态文件，并反代 `/api`
-- `backend`: NestJS 服务，容器内端口 `3000`
+- `backend`: NestJS 服务
 - `db`: PostgreSQL 15
 - `redis`: Redis 7
-
-这种方式不需要额外处理前端跨域，前端请求会直接走同域 `/api`。
