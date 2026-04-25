@@ -55,6 +55,7 @@ write_env_file() {
   local postgres_password="${POSTGRES_PASSWORD:-$(random_hex 16)}"
   local jwt_secret="${JWT_SECRET:-$(random_hex 32)}"
   local app_port="${APP_PORT:-80}"
+  local npm_registry="${NPM_REGISTRY:-https://registry.npmmirror.com}"
   local jwt_exp="${JWT_ACCESS_EXPIRES_IN_SECONDS:-3600}"
   local refresh_days="${REFRESH_TOKEN_TTL_DAYS:-30}"
   local llm_base_url="${LLM_BASE_URL:-}"
@@ -70,6 +71,7 @@ write_env_file() {
 
   cat >"$ENV_FILE" <<EOF
 APP_PORT=${app_port}
+NPM_REGISTRY=${npm_registry}
 
 POSTGRES_DB=${postgres_db}
 POSTGRES_USER=${postgres_user}
