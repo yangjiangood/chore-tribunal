@@ -26,4 +26,4 @@ WORKDIR /app/apps/backend
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "pnpm db:migrate:deploy && node dist/main"]
+CMD ["sh", "-c", "pnpm db:migrate:deploy && node dist/src/main.js"]
