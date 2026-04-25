@@ -17,6 +17,7 @@ import {
   type TaskRule,
   type VerdictPayload,
 } from '../lib/api'
+import { createClientId } from '../lib/id'
 import { clearSession, loadSession, saveSession } from '../lib/session'
 import {
   TribunalContext,
@@ -208,7 +209,7 @@ export function TribunalProvider({ children }: PropsWithChildren) {
         api.createEvent(accessToken, {
           memberId,
           taskRuleId: rule.id,
-          clientEventId: crypto.randomUUID(),
+          clientEventId: createClientId(),
           timestamp: new Date().toISOString(),
         }),
       )
