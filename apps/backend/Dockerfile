@@ -17,6 +17,8 @@ RUN pnpm install --frozen-lockfile
 COPY apps/backend ./apps/backend
 COPY packages ./packages
 
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
+
 RUN pnpm --dir apps/backend db:generate
 RUN pnpm --dir apps/backend build
 
