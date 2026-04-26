@@ -11,6 +11,7 @@ import {
   type AnalyticsRange,
   type AuthPayload,
   type BootstrapPayload,
+  type HonorsHallPayload,
   type Member,
   type MemberStatus,
   type SessionState,
@@ -265,8 +266,12 @@ export function TribunalProvider({ children }: PropsWithChildren) {
     return withSession((accessToken) => api.listEvents(accessToken, query))
   }
 
-  async function getAnalyticsOverview(range?: AnalyticsRange) {
-    return withSession((accessToken) => api.getAnalyticsOverview(accessToken, range))
+  async function getAnalyticsOverview(range?: AnalyticsRange, referenceWeekId?: string) {
+    return withSession((accessToken) => api.getAnalyticsOverview(accessToken, range, referenceWeekId))
+  }
+
+  async function getHonorsHall(): Promise<HonorsHallPayload> {
+    return withSession((accessToken) => api.getHonorsHall(accessToken))
   }
 
   async function generateVerdict(payload?: {
@@ -545,6 +550,7 @@ export function TribunalProvider({ children }: PropsWithChildren) {
         undoLastEvent,
         listEvents,
         getAnalyticsOverview,
+        getHonorsHall,
         generateVerdict,
         getLatestVerdict,
         listMembers,

@@ -1,27 +1,40 @@
 import { useMemo, useState } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import {
   ArrowLeft,
   BarChart3,
+  BookOpenText,
   History,
   RefreshCw,
   Settings2,
   Shield,
+  Trophy,
   Users,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { pickPreferenceDraft } from '@/app/tribunal-store'
 import { useTribunal } from '@/app/use-tribunal'
+import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { Member, TaskRule, TaskType } from '@/lib/api'
+import { saveStoredSoundPreference } from '@/lib/sound-preference'
 import { AnalyticsPanel } from './components/AnalyticsPanel'
+import { ArchivesPanel } from './components/ArchivesPanel'
 import { DangerConfirmModal } from './components/DangerConfirmModal'
 import { HistoryPanel } from './components/HistoryPanel'
+import { HonorsPanel } from './components/HonorsPanel'
 import { MembersPanel } from './components/MembersPanel'
 import { PreferencesPanel } from './components/PreferencesPanel'
 import { RulesPanel } from './components/RulesPanel'
 
-type ControlTab = 'analytics' | 'members' | 'rules' | 'history' | 'settings'
+type ControlTab =
+  | 'analytics'
+  | 'archives'
+  | 'honors'
+  | 'members'
+  | 'rules'
+  | 'history'
+  | 'settings'
 
 type DangerAction =
   | { kind: 'disable-member'; memberId: string; memberName: string }
@@ -30,6 +43,7 @@ type DangerAction =
   | { kind: 'restore-rule'; ruleId: string; ruleLabel: string }
 
 const defaultPreferenceDraft = {
+  soundEnabled: true,
   verdictPersona: '无情开麦裁判长',
   verdictToxicityLevel: 5,
   allowAttack: true,
@@ -41,13 +55,15 @@ const tabMeta: Array<{
   value: ControlTab
   label: string
   subtitle: string
-  icon: typeof BarChart3
+  icon: LucideIcon
 }> = [
   { value: 'analytics', label: '分析', subtitle: '总览与趋势', icon: BarChart3 },
+  { value: 'archives', label: '周报', subtitle: '单周成果归档', icon: BookOpenText },
+  { value: 'honors', label: '荣誉殿堂', subtitle: '历史称号与徽章', icon: Trophy },
   { value: 'members', label: '成员', subtitle: '角色与状态', icon: Users },
   { value: 'rules', label: '规则', subtitle: '档位与事项', icon: Shield },
   { value: 'history', label: '历史', subtitle: '记录与筛选', icon: History },
-  { value: 'settings', label: '设置', subtitle: '偏好与安全', icon: Settings2 },
+  { value: 'settings', label: '控制台', subtitle: '偏好与安全', icon: Settings2 },
 ]
 
 export function ConsoleScreen() {
@@ -76,7 +92,7 @@ export function ConsoleScreen() {
   const [tab, setTab] = useState<ControlTab>('analytics')
   const [memberDraft, setMemberDraft] = useState({
     nickname: '',
-    avatarValue: '👤',
+    avatarValue: '👩',
     cardColor: 'archive-blue',
   })
   const [consoleMembers, setConsoleMembers] = useState<Member[]>([])
@@ -131,7 +147,7 @@ export function ConsoleScreen() {
     await refreshConsoleMembers()
     setMemberDraft({
       nickname: '',
-      avatarValue: '👤',
+      avatarValue: '👩',
       cardColor: 'archive-blue',
     })
   }
@@ -154,6 +170,7 @@ export function ConsoleScreen() {
   async function handleSavePreferences(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     await savePreferences(preferenceDraft)
+    saveStoredSoundPreference(preferenceDraft.soundEnabled)
     setDirtyPreferenceDraft(null)
   }
 
@@ -163,11 +180,14 @@ export function ConsoleScreen() {
     setPasswordDraft({ currentPassword: '', newPassword: '', confirmPassword: '' })
   }
 
-  async function handleUpdateMember(memberId: string, payload: {
-    nickname?: string
-    avatarValue?: string
-    cardColor?: string
-  }) {
+  async function handleUpdateMember(
+    memberId: string,
+    payload: {
+      nickname?: string
+      avatarValue?: string
+      cardColor?: string
+    },
+  ) {
     await updateMember(memberId, payload)
     await refreshConsoleMembers()
   }
@@ -187,13 +207,16 @@ export function ConsoleScreen() {
     await refreshConsoleMembers()
   }
 
-  async function handleUpdateRule(ruleId: string, payload: {
-    status?: TaskRule['status']
-    taskType?: TaskRule['taskType']
-    label?: string
-    scoreDelta?: number
-    sortOrder?: number
-  }) {
+  async function handleUpdateRule(
+    ruleId: string,
+    payload: {
+      status?: TaskRule['status']
+      taskType?: TaskRule['taskType']
+      label?: string
+      scoreDelta?: number
+      sortOrder?: number
+    },
+  ) {
     await updateTaskRule(ruleId, payload)
     await refreshConsoleRules()
   }
@@ -276,7 +299,7 @@ export function ConsoleScreen() {
       return {
         title: `确定停用成员「${action.memberName}」吗？`,
         description: '停用后，该成员会从打卡等日常操作中隐藏，但历史数据会保留。',
-        warning: '停用会立即影响当前家庭的可用成员列表，请确认不是误触。',
+        warning: '停用会立即影响当前家庭的可用成员列表，请确认不是误操作。',
         confirmLabel: '确认停用',
         confirmVariant: 'danger' as const,
       }
@@ -285,8 +308,8 @@ export function ConsoleScreen() {
     if (action.kind === 'delete-member') {
       return {
         title: `确定删除成员「${action.memberName}」吗？`,
-        description: '删除后该成员将从当前界面移除，且无法直接恢复。',
-        warning: '这是高风险操作，如果只是暂时不用，建议优先选择停用。',
+        description: '删除后该成员会从当前界面移除，且无法直接恢复。',
+        warning: '这是高风险操作。如果只是暂时不用，建议优先选择停用。',
         confirmLabel: '确认删除',
         confirmVariant: 'danger' as const,
       }
@@ -401,6 +424,14 @@ export function ConsoleScreen() {
 
           <TabsContent value="analytics" className="console-v2__panel">
             <AnalyticsPanel />
+          </TabsContent>
+
+          <TabsContent value="archives" className="console-v2__panel">
+            <ArchivesPanel bootstrap={bootstrap} />
+          </TabsContent>
+
+          <TabsContent value="honors" className="console-v2__panel">
+            <HonorsPanel />
           </TabsContent>
 
           <TabsContent value="members" className="console-v2__panel">

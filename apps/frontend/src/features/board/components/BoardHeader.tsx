@@ -11,7 +11,13 @@ interface BoardHeaderProps {
   onLogout: () => void
 }
 
-export function BoardHeader({ bootstrap, loading, onOpenConsole, onOpenVerdict, onLogout }: BoardHeaderProps) {
+export function BoardHeader({
+  bootstrap,
+  loading,
+  onOpenConsole,
+  onOpenVerdict,
+  onLogout,
+}: BoardHeaderProps) {
   const [clock, setClock] = useState(() => formatClock())
   const [weekRange, setWeekRange] = useState(() => formatWeekRange())
 
@@ -55,11 +61,11 @@ export function BoardHeader({ bootstrap, loading, onOpenConsole, onOpenVerdict, 
       </div>
 
       <div className="ios-board-toolbar__actions">
-        <button type="button" aria-label="打开设置" onClick={onOpenConsole}>
+        <button type="button" aria-label="打开控制台" onClick={onOpenConsole}>
           <Settings size={16} />
-          <span>设置</span>
+          <span>控制台</span>
         </button>
-        <button type="button" aria-label="召唤 AI 裁判" onClick={onOpenVerdict}>
+        <button type="button" aria-label="呼叫 AI 裁决" onClick={onOpenVerdict}>
           <Sparkles size={16} />
           <span>裁决</span>
         </button>

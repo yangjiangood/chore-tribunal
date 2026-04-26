@@ -223,11 +223,107 @@ export interface AnalyticsOverviewPayload {
       epicCount: number
     }>
   }
+  fairnessInsight: {
+    score: number
+    level: 'excellent' | 'good' | 'watch' | 'risky'
+    label: string
+    summary: string
+    dimensions: {
+      participation: number
+      balance: number
+      rotation: number
+    }
+  }
+  actionSuggestions: Array<{
+    id: string
+    title: string
+    description: string
+    priority: 'high' | 'medium' | 'low'
+    focusMemberNickname: string | null
+    focusTaskType: TaskType | null
+  }>
+  weeklyReport: {
+    title: string
+    headline: string
+    summary: string
+    highlights: string[]
+    closing: string
+  }
+  achievements: {
+    weeklyTitles: Array<{
+      id: string
+      title: string
+      description: string
+      memberId: string | null
+      memberNickname: string | null
+      tone: 'gold' | 'violet' | 'teal' | 'rose'
+    }>
+    memberBadges: Array<{
+      memberId: string
+      memberNickname: string
+      badges: Array<{
+        id: string
+        label: string
+        description: string
+        tone: 'gold' | 'violet' | 'teal' | 'rose'
+      }>
+    }>
+  }
   systemSummary: {
     overall: string
     fairness: string
     trend: string
   }
+}
+
+export interface HonorsHallPayload {
+  referenceWeekId: string
+  trackedWeekIds: string[]
+  weeklyHonorRolls: Array<{
+    weekId: string
+    totalScore: number
+    totalEvents: number
+    fairnessScore: number
+    leaderNickname: string | null
+    weeklyTitles: Array<{
+      id: string
+      title: string
+      description: string
+      memberId: string | null
+      memberNickname: string | null
+      tone: 'gold' | 'violet' | 'teal' | 'rose'
+    }>
+    memberBadges: Array<{
+      memberId: string
+      memberNickname: string
+      badges: Array<{
+        id: string
+        label: string
+        description: string
+        tone: 'gold' | 'violet' | 'teal' | 'rose'
+      }>
+    }>
+  }>
+  memberHall: Array<{
+    memberId: string
+    memberNickname: string
+    totalBadgeEarned: number
+    totalTitleEarned: number
+    badgeCounts: Array<{
+      id: string
+      label: string
+      tone: 'gold' | 'violet' | 'teal' | 'rose'
+      count: number
+      lastEarnedWeekId: string | null
+    }>
+    titleCounts: Array<{
+      id: string
+      label: string
+      tone: 'gold' | 'violet' | 'teal' | 'rose'
+      count: number
+      lastEarnedWeekId: string | null
+    }>
+  }>
 }
 
 export type VerdictStatus = 'SUCCESS' | 'FAILED' | 'FALLBACK'
@@ -403,9 +499,13 @@ export const api = {
     return request<EventListPayload>(`/api/v1/events${suffix}`, {}, accessToken)
   },
 
-  getAnalyticsOverview(accessToken: string, range: AnalyticsRange = '4w') {
-    const suffix = buildQuery({ range })
+  getAnalyticsOverview(accessToken: string, range: AnalyticsRange = '4w', referenceWeekId?: string) {
+    const suffix = buildQuery({ range, referenceWeekId })
     return request<AnalyticsOverviewPayload>(`/api/v1/analytics/overview${suffix}`, {}, accessToken)
+  },
+
+  getHonorsHall(accessToken: string) {
+    return request<HonorsHallPayload>('/api/v1/analytics/honors', {}, accessToken)
   },
 
   generateVerdict(accessToken: string, payload: {

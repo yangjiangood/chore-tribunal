@@ -5,6 +5,7 @@ import type {
   BootstrapPayload,
   EventListPayload,
   EventStatus,
+  HonorsHallPayload,
   Member,
   MemberStatus,
   Preferences,
@@ -14,6 +15,7 @@ import type {
   TaskType,
   VerdictPayload,
 } from '../lib/api'
+import { resolveSoundEnabledPreference } from '../lib/sound-preference'
 
 export type Notice = { type: 'success' | 'error'; message: string }
 
@@ -29,7 +31,12 @@ export type UndoState = {
 
 export type PreferenceDraft = Pick<
   Preferences,
-  'verdictPersona' | 'verdictToxicityLevel' | 'allowAttack' | 'allowHumiliation' | 'allowLabeling'
+  | 'soundEnabled'
+  | 'verdictPersona'
+  | 'verdictToxicityLevel'
+  | 'allowAttack'
+  | 'allowHumiliation'
+  | 'allowLabeling'
 >
 
 export interface TribunalContextValue {
@@ -52,7 +59,8 @@ export interface TribunalContextValue {
     page?: number
     pageSize?: number
   }) => Promise<EventListPayload>
-  getAnalyticsOverview: (range?: AnalyticsRange) => Promise<AnalyticsOverviewPayload>
+  getAnalyticsOverview: (range?: AnalyticsRange, referenceWeekId?: string) => Promise<AnalyticsOverviewPayload>
+  getHonorsHall: () => Promise<HonorsHallPayload>
   generateVerdict: (payload?: {
     weekId?: string
     persona?: string
@@ -100,6 +108,7 @@ export interface TribunalContextValue {
 
 export function pickPreferenceDraft(preferences: Preferences): PreferenceDraft {
   return {
+    soundEnabled: resolveSoundEnabledPreference(preferences.soundEnabled),
     verdictPersona: preferences.verdictPersona,
     verdictToxicityLevel: preferences.verdictToxicityLevel,
     allowAttack: preferences.allowAttack,

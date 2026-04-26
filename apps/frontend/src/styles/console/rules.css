@@ -534,6 +534,13 @@
   padding: 14px 16px;
 }
 
+.console-settings-inline-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--console-text-soft);
+}
+
 .console-switch-item p,
 .console-security-note span {
   margin: 4px 0 0;

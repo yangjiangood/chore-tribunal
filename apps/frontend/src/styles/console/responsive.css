@@ -35,9 +35,17 @@
 
   .console-analytics-middle,
   .console-analytics-overview-strip,
+  .console-analytics-focus,
+  .console-weekly-archive-meta,
+  .console-achievement-grid,
+  .console-weekly-archive-grid,
+  .console-honors-layout,
+  .console-weekly-report__body,
   .console-analytics-summary,
   .console-trend-kpis,
   .console-settings-grid,
+  .console-honor-rarity-strip,
+  .console-honor-catalog-grid,
   .console-history-filter-grid {
     grid-template-columns: 1fr;
   }
@@ -94,9 +102,17 @@
   .console-analytics-top,
   .console-analytics-middle,
   .console-analytics-overview-strip,
+  .console-analytics-focus,
+  .console-weekly-archive-meta,
+  .console-achievement-grid,
+  .console-weekly-archive-grid,
+  .console-honors-layout,
+  .console-weekly-report__body,
   .console-analytics-summary,
   .console-trend-kpis,
   .console-settings-grid,
+  .console-honor-rarity-strip,
+  .console-honor-catalog-grid,
   .console-members-grid,
   .console-form-inline,
   .console-tier-picker,
@@ -113,6 +129,15 @@
 
   .console-color-picker--rich {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .console-badge-wall {
+    grid-template-columns: 1fr;
+  }
+
+  .console-hall-members,
+  .console-hall-member__stats {
+    grid-template-columns: 1fr;
   }
 
   .console-member-card {
@@ -153,12 +178,33 @@
   }
 
   .console-bar-chart__meta,
-  .console-distribution__meta {
+  .console-distribution__meta,
+  .console-suggestion-card__head,
+  .console-weekly-report__header,
+  .console-title-card__head,
+  .console-badge-wall__member-head,
+  .console-honor-card,
+  .console-honor-week__meta,
+  .console-hall-member__head,
+  .console-hall-title__head {
     flex-direction: column;
     align-items: flex-start;
   }
 
+  .console-honor-catalog-card__top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .console-honor-catalog-card__badges {
+    justify-items: start;
+  }
+
   .console-bar-chart__stats {
+    justify-content: flex-start;
+  }
+
+  .console-honor-week__chips {
     justify-content: flex-start;
   }
 

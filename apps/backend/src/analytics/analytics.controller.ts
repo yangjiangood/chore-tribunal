@@ -25,4 +25,12 @@ export class AnalyticsController {
       await this.analyticsService.getOverview(auth.familyId, query),
     );
   }
+
+  @Get('honors')
+  @UseGuards(AccessTokenGuard)
+  async getHonorsHall(@CurrentAuth() auth: RequestAuth) {
+    return successResponse(
+      await this.analyticsService.getHonorsHall(auth.familyId),
+    );
+  }
 }

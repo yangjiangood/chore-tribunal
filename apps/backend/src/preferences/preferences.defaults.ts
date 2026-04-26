@@ -2,7 +2,7 @@ export function buildDefaultPreferences(familyId: string) {
   return {
     familyId,
     defaultFullscreen: false,
-    soundEnabled: false,
+    soundEnabled: true,
     motionEnabled: true,
     fontScale: 'md',
     themeStyle: 'public-bulletin',

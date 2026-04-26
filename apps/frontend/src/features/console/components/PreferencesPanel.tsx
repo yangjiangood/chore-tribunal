@@ -1,4 +1,4 @@
-import { ShieldAlert, Sparkles } from 'lucide-react'
+import { ShieldAlert, Sparkles, Volume2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -6,6 +6,7 @@ import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 
 interface PreferenceDraft {
+  soundEnabled: boolean
   verdictPersona: string
   verdictToxicityLevel: number
   allowAttack: boolean
@@ -44,13 +45,29 @@ export function PreferencesPanel({
         <form className="console-settings-card" onSubmit={onSavePreferences}>
           <header className="console-settings-card__header">
             <div>
-              <h3>裁决风格</h3>
+              <h3>界面与裁决风格</h3>
             </div>
             <Sparkles className="h-4 w-4" />
           </header>
 
+          <label className="console-switch-item">
+            <div>
+              <strong>打卡音效</strong>
+              <p>开启后，首页点击打卡会播放轻量提示音。</p>
+            </div>
+            <div className="console-settings-inline-icon">
+              <Volume2 className="h-4 w-4" />
+              <Switch
+                checked={preferenceDraft.soundEnabled}
+                onCheckedChange={(checked) =>
+                  onPreferenceChange({ ...preferenceDraft, soundEnabled: checked })
+                }
+              />
+            </div>
+          </label>
+
           <div className="console-field">
-            <Label htmlFor="verdict-persona">裁判人设</Label>
+            <Label htmlFor="verdict-persona">裁决人设</Label>
             <Input
               id="verdict-persona"
               value={preferenceDraft.verdictPersona}
@@ -116,7 +133,7 @@ export function PreferencesPanel({
           </div>
 
           <Button type="submit" variant="primary" disabled={loading}>
-            保存风格
+            保存偏好
           </Button>
         </form>
 

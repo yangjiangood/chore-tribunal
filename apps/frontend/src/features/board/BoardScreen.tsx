@@ -8,6 +8,8 @@ import { MemberGrid } from './components/MemberGrid'
 import { RuleStrip } from './components/RuleStrip'
 import { UndoToast } from './components/UndoToast'
 import { VerdictModal } from './components/VerdictModal'
+import { playBoardSuccessSound, playBoardTapSound, primeBoardAudio } from './board-sound'
+import { resolveSoundEnabledPreference } from '@/lib/sound-preference'
 
 export function BoardScreen() {
   const navigate = useNavigate()
@@ -70,6 +72,14 @@ export function BoardScreen() {
       })
   }, [armedTaskType, bootstrap])
 
+  const soundEnabled = useMemo(() => {
+    if (!bootstrap?.preferences) {
+      return true
+    }
+
+    return resolveSoundEnabledPreference(bootstrap.preferences.soundEnabled)
+  }, [bootstrap])
+
   if (!session) {
     return null
   }
@@ -119,6 +129,35 @@ export function BoardScreen() {
     }
   }
 
+  function handleArmMember(memberId: string, taskType: TaskType) {
+    setArmedMemberId(memberId)
+    setArmedTaskType(taskType)
+
+    if (soundEnabled) {
+      primeBoardAudio()
+      playBoardTapSound()
+    }
+  }
+
+  async function handleSelectRule(rule: (typeof visibleTaskRules)[number]) {
+    if (!currentMember) {
+      return
+    }
+
+    if (soundEnabled) {
+      primeBoardAudio()
+    }
+
+    await createScoreEvent(currentMember.id, rule, currentMember.nickname)
+
+    if (soundEnabled) {
+      playBoardSuccessSound()
+    }
+
+    setArmedMemberId(null)
+    setArmedTaskType(null)
+  }
+
   return (
     <main className="ios-board">
       <BoardHeader
@@ -134,10 +173,7 @@ export function BoardScreen() {
           members={activeMembers}
           rankingMap={rankingMap}
           armedMemberId={armedMemberId}
-          onArmMember={(memberId, taskType) => {
-            setArmedMemberId(memberId)
-            setArmedTaskType(taskType)
-          }}
+          onArmMember={handleArmMember}
         />
       </section>
 
@@ -151,13 +187,7 @@ export function BoardScreen() {
         armedTaskType={armedTaskType}
         rules={visibleTaskRules}
         onSelectRule={(rule) => {
-          if (!currentMember) {
-            return
-          }
-
-          void createScoreEvent(currentMember.id, rule, currentMember.nickname)
-          setArmedMemberId(null)
-          setArmedTaskType(null)
+          void handleSelectRule(rule)
         }}
         onClose={() => {
           setArmedMemberId(null)

@@ -10,7 +10,7 @@ const rangeOptions: Array<{ value: AnalyticsRange; label: string }> = [
   { value: '12w', label: '近 12 周' },
 ]
 
-function getTaskTypeMeta(taskType: TaskType) {
+function getTaskTypeMeta(taskType: TaskType | null) {
   if (taskType === 'LIGHT') {
     return {
       color: '#22c55e',
@@ -25,10 +25,45 @@ function getTaskTypeMeta(taskType: TaskType) {
     }
   }
 
-  return {
-    color: '#f59e0b',
-    label: '+5 硬仗',
+  if (taskType === 'EPIC') {
+    return {
+      color: '#f59e0b',
+      label: '+5 硬仗',
+    }
   }
+
+  return {
+    color: '#64748b',
+    label: '综合任务',
+  }
+}
+
+function getPriorityLabel(priority: 'high' | 'medium' | 'low') {
+  if (priority === 'high') {
+    return '优先处理'
+  }
+
+  if (priority === 'medium') {
+    return '建议跟进'
+  }
+
+  return '可持续优化'
+}
+
+function getFairnessTone(level: AnalyticsOverviewPayload['fairnessInsight']['level']) {
+  if (level === 'excellent') {
+    return 'excellent'
+  }
+
+  if (level === 'good') {
+    return 'good'
+  }
+
+  if (level === 'watch') {
+    return 'watch'
+  }
+
+  return 'risky'
 }
 
 function formatWeekLabel(weekId: string) {
@@ -189,7 +224,7 @@ export function AnalyticsPanel() {
       <section className="console-analytics-toolbar">
         <div className="console-analytics-toolbar__copy">
           <strong>{activeRangeLabel}数据分析</strong>
-          <span>先看关键数字，再看成员对比和趋势结论。</span>
+          <span>先看关键数字，再看公平度、分工建议和趋势结论。</span>
         </div>
 
         <div className="console-range-switch" aria-label="分析时间范围">
@@ -250,6 +285,110 @@ export function AnalyticsPanel() {
                 <p>{card.hint}</p>
               </article>
             ))}
+          </section>
+
+          <section className="console-analytics-focus">
+            <article className={`console-fairness-card is-${getFairnessTone(overview.fairnessInsight.level)}`}>
+              <header className="console-chart-card__header console-chart-card__header--simple">
+                <div>
+                  <p>公平度评分</p>
+                  <h3>{overview.fairnessInsight.label}</h3>
+                  <small>{overview.fairnessInsight.summary}</small>
+                </div>
+              </header>
+
+              <div className="console-fairness-card__score">
+                <strong>{overview.fairnessInsight.score}</strong>
+                <span>/ 100</span>
+              </div>
+
+              <div className="console-fairness-metrics">
+                <article className="console-fairness-metric">
+                  <div className="console-fairness-metric__head">
+                    <span>参与覆盖</span>
+                    <strong>{overview.fairnessInsight.dimensions.participation}</strong>
+                  </div>
+                  <div className="console-fairness-metric__track">
+                    <div
+                      className="console-fairness-metric__fill"
+                      style={{ width: `${overview.fairnessInsight.dimensions.participation}%` }}
+                    />
+                  </div>
+                </article>
+
+                <article className="console-fairness-metric">
+                  <div className="console-fairness-metric__head">
+                    <span>积分均衡</span>
+                    <strong>{overview.fairnessInsight.dimensions.balance}</strong>
+                  </div>
+                  <div className="console-fairness-metric__track">
+                    <div
+                      className="console-fairness-metric__fill"
+                      style={{ width: `${overview.fairnessInsight.dimensions.balance}%` }}
+                    />
+                  </div>
+                </article>
+
+                <article className="console-fairness-metric">
+                  <div className="console-fairness-metric__head">
+                    <span>任务轮换</span>
+                    <strong>{overview.fairnessInsight.dimensions.rotation}</strong>
+                  </div>
+                  <div className="console-fairness-metric__track">
+                    <div
+                      className="console-fairness-metric__fill"
+                      style={{ width: `${overview.fairnessInsight.dimensions.rotation}%` }}
+                    />
+                  </div>
+                </article>
+              </div>
+            </article>
+
+            <article className="console-chart-card">
+              <header className="console-chart-card__header console-chart-card__header--simple">
+                <div>
+                  <p>下周建议</p>
+                  <h3>分工优化方向</h3>
+                  <small>系统会根据参与度、积分差距和任务集中度，自动生成最值得优先处理的建议。</small>
+                </div>
+              </header>
+
+              <div className="console-suggestion-list">
+                {overview.actionSuggestions.map((suggestion) => {
+                  const taskMeta = getTaskTypeMeta(suggestion.focusTaskType)
+
+                  return (
+                    <article key={suggestion.id} className="console-suggestion-card">
+                      <div className="console-suggestion-card__head">
+                        <strong>{suggestion.title}</strong>
+                        <span className={`console-suggestion-card__priority is-${suggestion.priority}`}>
+                          {getPriorityLabel(suggestion.priority)}
+                        </span>
+                      </div>
+
+                      <p>{suggestion.description}</p>
+
+                      <div className="console-suggestion-card__tags">
+                        {suggestion.focusMemberNickname ? (
+                          <span className="console-suggestion-card__tag">
+                            重点成员：{suggestion.focusMemberNickname}
+                          </span>
+                        ) : null}
+
+                        {suggestion.focusTaskType ? (
+                          <span
+                            className="console-suggestion-card__tag"
+                            style={{ borderColor: `${taskMeta.color}33`, color: taskMeta.color }}
+                          >
+                            建议任务：{taskMeta.label}
+                          </span>
+                        ) : null}
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            </article>
           </section>
 
           <section className="console-analytics-middle">
