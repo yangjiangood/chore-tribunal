@@ -1,5 +1,6 @@
 import { EventStatus, MemberStatus, Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
+import { getWeekIdForTimezone } from '../common/utils/week.util';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface BoardSnapshot {
@@ -66,8 +67,24 @@ export class BoardService {
       where: { id: familyId },
       select: {
         currentWeekId: true,
+        timezone: true,
       },
     });
+
+    const calculatedCurrentWeekId = getWeekIdForTimezone(
+      new Date(),
+      family.timezone,
+    );
+    const activeWeekId = calculatedCurrentWeekId;
+
+    if (family.currentWeekId !== calculatedCurrentWeekId) {
+      await this.prisma.family.update({
+        where: { id: familyId },
+        data: {
+          currentWeekId: calculatedCurrentWeekId,
+        },
+      });
+    }
 
     const [members, events] = await Promise.all([
       this.prisma.member.findMany({
@@ -81,7 +98,7 @@ export class BoardService {
       this.prisma.taskEvent.findMany({
         where: {
           familyId,
-          weekId: family.currentWeekId,
+          weekId: activeWeekId,
         },
         orderBy: { createdAt: 'desc' },
         take: 50,

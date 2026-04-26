@@ -130,8 +130,9 @@ export function formatClock() {
 export function formatWeekRange(date = new Date()) {
   const current = new Date(date)
   const day = current.getDay()
+  const mondayOffset = day === 0 ? -6 : 1 - day
   const start = new Date(current)
-  start.setDate(current.getDate() - day)
+  start.setDate(current.getDate() + mondayOffset)
 
   const end = new Date(start)
   end.setDate(start.getDate() + 6)

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { MemberStatus, TaskRuleStatus } from '@prisma/client';
 import { BoardService } from '../board/board.service';
+import { getWeekIdForTimezone } from '../common/utils/week.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { buildDefaultPreferences } from '../preferences/preferences.defaults';
 import { ensureDefaultTaskRules } from '../task-rules/task-rules.defaults';
@@ -22,7 +23,7 @@ export class FamiliesService {
   async getBootstrap(familyId: string) {
     await ensureDefaultTaskRules(this.prisma, familyId);
 
-    const family = await this.prisma.family.findUniqueOrThrow({
+    const familyRecord = await this.prisma.family.findUniqueOrThrow({
       where: {
         id: familyId,
       },
@@ -33,6 +34,27 @@ export class FamiliesService {
         currentWeekId: true,
       },
     });
+
+    const calculatedCurrentWeekId = getWeekIdForTimezone(
+      new Date(),
+      familyRecord.timezone,
+    );
+
+    if (familyRecord.currentWeekId !== calculatedCurrentWeekId) {
+      await this.prisma.family.update({
+        where: {
+          id: familyId,
+        },
+        data: {
+          currentWeekId: calculatedCurrentWeekId,
+        },
+      });
+    }
+
+    const family = {
+      ...familyRecord,
+      currentWeekId: calculatedCurrentWeekId,
+    };
 
     const [members, taskRules, preference, currentBoardSnapshot] =
       await Promise.all([
