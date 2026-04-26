@@ -40,6 +40,12 @@
   .console-achievement-grid,
   .console-weekly-archive-grid,
   .console-honors-layout,
+  .console-profile-hero,
+  .console-profile-grid,
+  .console-profile-hero__stats,
+  .console-poster-preview,
+  .console-poster-card__stats,
+  .console-poster-card__chips,
   .console-weekly-report__body,
   .console-analytics-summary,
   .console-trend-kpis,
@@ -88,6 +94,10 @@
     gap: 6px;
   }
 
+  .console-honors-hero {
+    padding: 18px 18px 20px;
+  }
+
   .console-v2__tablist {
     width: 100%;
     overflow-x: auto;
@@ -107,6 +117,9 @@
   .console-achievement-grid,
   .console-weekly-archive-grid,
   .console-honors-layout,
+  .console-profile-hero,
+  .console-profile-grid,
+  .console-profile-hero__stats,
   .console-weekly-report__body,
   .console-analytics-summary,
   .console-trend-kpis,
@@ -117,7 +130,10 @@
   .console-form-inline,
   .console-tier-picker,
   .console-avatar-picker,
-  .console-color-picker {
+  .console-color-picker,
+  .console-profile-actions,
+  .console-poster-card__stats,
+  .console-poster-card__chips {
     grid-template-columns: 1fr;
   }
 
@@ -138,6 +154,19 @@
   .console-hall-members,
   .console-hall-member__stats {
     grid-template-columns: 1fr;
+  }
+
+  .console-profile-shell {
+    padding: 18px;
+    margin: 0;
+  }
+
+  .console-profile-shell--poster {
+    padding: 18px;
+  }
+
+  .console-profile-overlay {
+    padding: 14px;
   }
 
   .console-member-card {
@@ -186,7 +215,8 @@
   .console-honor-card,
   .console-honor-week__meta,
   .console-hall-member__head,
-  .console-hall-title__head {
+  .console-hall-title__head,
+  .console-profile-recent__meta {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -194,6 +224,22 @@
   .console-honor-catalog-card__top {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .console-honor-week__titles {
+    grid-template-columns: 1fr;
+  }
+
+  .console-honor-progress__meta,
+  .console-honor-card__meta,
+  .console-hall-member__identity,
+  .console-profile-hero__identity {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .console-honor-card {
+    min-height: auto;
   }
 
   .console-honor-catalog-card__badges {
@@ -206,6 +252,25 @@
 
   .console-honor-week__chips {
     justify-content: flex-start;
+  }
+
+  .console-honor-week__footer {
+    justify-content: stretch;
+  }
+
+  .console-honor-week__footer .console-profile-open,
+  .console-profile-actions .console-profile-open {
+    width: 100%;
+  }
+
+  .console-profile-actions {
+    gap: 10px;
+  }
+
+  .console-honor-avatar.is-lg {
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
   }
 
   .console-trend-chart {

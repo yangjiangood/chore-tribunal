@@ -118,6 +118,7 @@ type WeeklyHonorRoll = {
   leaderNickname: string | null;
   weeklyTitles: WeeklyTitle[];
   memberBadges: MemberBadgeGroup[];
+  memberSnapshots: MemberHonorWeekSnapshot[];
 };
 
 type HonorCountItem = {
@@ -135,6 +136,18 @@ type MemberHonorHallItem = {
   totalTitleEarned: number;
   badgeCounts: HonorCountItem[];
   titleCounts: HonorCountItem[];
+};
+
+type MemberHonorWeekSnapshot = {
+  memberId: string;
+  memberNickname: string;
+  totalScore: number;
+  eventCount: number;
+  lightCount: number;
+  coreCount: number;
+  epicCount: number;
+  titleIds: string[];
+  badgeIds: string[];
 };
 
 type HonorsHallPayload = {
@@ -1020,6 +1033,25 @@ function buildWeeklyHonorRoll(
     memberStats,
     fairnessInsight,
   });
+  const titleMap = new Map<string, string[]>();
+  const badgeMap = new Map<string, string[]>();
+
+  for (const title of achievements.weeklyTitles) {
+    if (!title.memberId) {
+      continue;
+    }
+
+    const current = titleMap.get(title.memberId) ?? [];
+    current.push(title.id);
+    titleMap.set(title.memberId, current);
+  }
+
+  for (const group of achievements.memberBadges) {
+    badgeMap.set(
+      group.memberId,
+      group.badges.map((badge) => badge.id),
+    );
+  }
 
   return {
     weekId,
@@ -1029,6 +1061,17 @@ function buildWeeklyHonorRoll(
     leaderNickname: overviewMetrics.leaderNickname,
     weeklyTitles: achievements.weeklyTitles,
     memberBadges: achievements.memberBadges.filter((item) => item.badges.length > 0),
+    memberSnapshots: memberStats.map((member) => ({
+      memberId: member.memberId,
+      memberNickname: member.nickname,
+      totalScore: member.totalScore,
+      eventCount: member.eventCount,
+      lightCount: member.lightCount,
+      coreCount: member.coreCount,
+      epicCount: member.epicCount,
+      titleIds: titleMap.get(member.memberId) ?? [],
+      badgeIds: badgeMap.get(member.memberId) ?? [],
+    })),
   };
 }
 

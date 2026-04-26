@@ -1,26 +1,37 @@
-import { LoaderCircle, Medal, Sparkles, Trophy } from 'lucide-react'
+import { LoaderCircle } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTribunal } from '@/app/use-tribunal'
 import type { HonorsHallPayload } from '@/lib/api'
+import { HONOR_CATALOG } from './honor-visuals'
+import { HonorsCatalogSection } from './honors/HonorsCatalogSection'
+import { HonorsDetailModal } from './honors/HonorsDetailModal'
+import { HonorsMemberProfileModal } from './honors/HonorsMemberProfileModal'
+import { HonorsMembersSection } from './honors/HonorsMembersSection'
+import { HonorsPosterModal } from './honors/HonorsPosterModal'
+import { HonorsTimelineSection } from './honors/HonorsTimelineSection'
+import { HonorsWeeklyPosterModal } from './honors/HonorsWeeklyPosterModal'
 import {
-  getHonorEmptyIcon,
-  getHonorKindLabel,
-  getHonorRarityLabel,
-  getHonorToneClass,
-  getHonorVisual,
-  HONOR_CATALOG,
-} from './honor-visuals'
-
-function formatWeekLabel(weekId: string) {
-  const match = weekId.match(/W\d+/i)
-  return match ? match[0].toUpperCase() : weekId
-}
+  buildHonorDetailPayload,
+  buildHonorRaritySummary,
+  buildHonorsSummary,
+  buildMemberProfilePayload,
+  buildPosterSvg,
+  buildWeeklyFamilyPosterSvg,
+} from './honors/honors-panel.helpers'
 
 export function HonorsPanel() {
-  const { getHonorsHall } = useTribunal()
+  const { getHonorsHall, bootstrap } = useTribunal()
   const [hall, setHall] = useState<HonorsHallPayload | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
+  const [selectedHonorId, setSelectedHonorId] = useState<string | null>(null)
+  const [selectedPosterMemberId, setSelectedPosterMemberId] = useState<string | null>(null)
+  const [posterDownloading, setPosterDownloading] = useState(false)
+  const [posterFeedback, setPosterFeedback] = useState<string | null>(null)
+  const [selectedWeekPosterId, setSelectedWeekPosterId] = useState<string | null>(null)
+  const [weeklyPosterDownloading, setWeeklyPosterDownloading] = useState(false)
+  const [weeklyPosterFeedback, setWeeklyPosterFeedback] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -52,352 +63,259 @@ export function HonorsPanel() {
     }
   }, [getHonorsHall])
 
-  const summary = useMemo(() => {
-    if (!hall) {
-      return null
-    }
+  const summary = useMemo(() => (hall ? buildHonorsSummary(hall) : null), [hall])
+  const raritySummary = useMemo(() => (summary ? buildHonorRaritySummary(summary) : []), [summary])
+  const memberLookup = useMemo(
+    () => new Map((bootstrap?.members ?? []).map((member) => [member.id, member])),
+    [bootstrap],
+  )
 
-    const unlockedTitleIds = new Set<string>()
-    const unlockedBadgeIds = new Set<string>()
+  const selectedMemberProfile = useMemo(
+    () => (hall && selectedMemberId ? buildMemberProfilePayload(hall, selectedMemberId) : null),
+    [hall, selectedMemberId],
+  )
 
-    for (const week of hall.weeklyHonorRolls) {
-      for (const title of week.weeklyTitles) {
-        unlockedTitleIds.add(title.id)
-      }
-    }
+  const selectedPosterProfile = useMemo(
+    () => (hall && selectedPosterMemberId ? buildMemberProfilePayload(hall, selectedPosterMemberId) : null),
+    [hall, selectedPosterMemberId],
+  )
 
-    for (const member of hall.memberHall) {
-      for (const badge of member.badgeCounts) {
-        unlockedBadgeIds.add(badge.id)
-      }
-    }
+  const selectedHonorDetail = useMemo(
+    () => (hall && summary && selectedHonorId ? buildHonorDetailPayload(hall, summary, selectedHonorId) : null),
+    [hall, selectedHonorId, summary],
+  )
+  const selectedWeekPoster = useMemo(
+    () => hall?.weeklyHonorRolls.find((item) => item.weekId === selectedWeekPosterId) ?? null,
+    [hall, selectedWeekPosterId],
+  )
 
-    const totalTitles = hall.memberHall.reduce((sum, member) => sum + member.totalTitleEarned, 0)
-    const totalBadges = hall.memberHall.reduce((sum, member) => sum + member.totalBadgeEarned, 0)
-    const leader = hall.memberHall[0] ?? null
-
-    return {
-      totalTitles,
-      totalBadges,
-      leader,
-      unlockedTitleIds,
-      unlockedBadgeIds,
-      unlockedCatalogCount: HONOR_CATALOG.filter((item) =>
-        item.kind === 'badge' ? unlockedBadgeIds.has(item.id) : unlockedTitleIds.has(item.id) || unlockedBadgeIds.has(item.id),
-      ).length,
-    }
-  }, [hall])
-
-  if (loading) {
-    return (
-      <article className="console-empty-panel">
-        <LoaderCircle className="h-5 w-5 animate-spin" />
-        <strong>正在整理荣誉殿堂</strong>
-        <p>系统正在汇总历史称号、累计徽章和成员荣誉统计。</p>
-      </article>
-    )
+  function openPoster(memberId: string) {
+    setPosterFeedback(null)
+    setSelectedPosterMemberId(memberId)
   }
 
-  if (error) {
-    return (
-      <article className="console-empty-panel">
-        <strong>荣誉殿堂暂时不可用</strong>
-        <p>{error}</p>
-      </article>
-    )
+  function openWeekPoster(weekId: string) {
+    setWeeklyPosterFeedback(null)
+    setSelectedWeekPosterId(weekId)
   }
 
-  if (!hall || !summary) {
-    return (
-      <article className="console-empty-panel">
-        <strong>暂无荣誉数据</strong>
-        <p>完成更多真实打卡后，这里会沉淀成按周可回看的长期荣誉档案。</p>
-      </article>
-    )
+  function openMember(memberId: string) {
+    setSelectedHonorId(null)
+    setSelectedMemberId(memberId)
+  }
+
+  async function handleDownloadPoster() {
+    if (!selectedPosterProfile) {
+      return
+    }
+
+    setPosterDownloading(true)
+    setPosterFeedback(null)
+
+    let objectUrl: string | null = null
+
+    try {
+      const svg = buildPosterSvg(selectedPosterProfile)
+      const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
+      objectUrl = URL.createObjectURL(svgBlob)
+
+      const image = new Image()
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve()
+        image.onerror = () => reject(new Error('POSTER_IMAGE_LOAD_FAILED'))
+        image.src = objectUrl as string
+      })
+
+      const canvas = document.createElement('canvas')
+      canvas.width = 1080
+      canvas.height = 1520
+      const context = canvas.getContext('2d')
+
+      if (!context) {
+        throw new Error('POSTER_CANVAS_CONTEXT_FAILED')
+      }
+
+      context.drawImage(image, 0, 0, canvas.width, canvas.height)
+
+      const pngUrl = canvas.toDataURL('image/png')
+      const link = document.createElement('a')
+      link.href = pngUrl
+      link.download = `honor-poster-${selectedPosterProfile.member.memberNickname}.png`
+      document.body.append(link)
+      link.click()
+      link.remove()
+
+      setPosterFeedback('海报已开始下载，可以直接发到群里或作为比赛展示截图。')
+    } catch {
+      setPosterFeedback('海报生成失败了，请稍后再试一次。')
+    } finally {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl)
+      }
+      setPosterDownloading(false)
+    }
+  }
+
+  async function handleDownloadWeeklyPoster() {
+    if (!selectedWeekPoster) {
+      return
+    }
+
+    setWeeklyPosterDownloading(true)
+    setWeeklyPosterFeedback(null)
+
+    let objectUrl: string | null = null
+
+    try {
+      const svg = buildWeeklyFamilyPosterSvg(selectedWeekPoster)
+      const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
+      objectUrl = URL.createObjectURL(svgBlob)
+
+      const image = new Image()
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve()
+        image.onerror = () => reject(new Error('WEEKLY_POSTER_IMAGE_LOAD_FAILED'))
+        image.src = objectUrl as string
+      })
+
+      const canvas = document.createElement('canvas')
+      canvas.width = 1080
+      canvas.height = 1520
+      const context = canvas.getContext('2d')
+
+      if (!context) {
+        throw new Error('WEEKLY_POSTER_CANVAS_CONTEXT_FAILED')
+      }
+
+      context.drawImage(image, 0, 0, canvas.width, canvas.height)
+
+      const pngUrl = canvas.toDataURL('image/png')
+      const link = document.createElement('a')
+      link.href = pngUrl
+      link.download = `weekly-honor-poster-${selectedWeekPoster.weekId}.png`
+      document.body.append(link)
+      link.click()
+      link.remove()
+
+      setWeeklyPosterFeedback('本周荣誉海报已开始下载，可以直接放到周报或比赛展示里。')
+    } catch {
+      setWeeklyPosterFeedback('本周海报生成失败了，请稍后再试一次。')
+    } finally {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl)
+      }
+      setWeeklyPosterDownloading(false)
+    }
   }
 
   return (
     <div className="console-page-stack">
-      <section className="console-analytics-toolbar">
+      <section className="console-analytics-toolbar console-honors-hero">
         <div className="console-analytics-toolbar__copy">
-          <strong>家庭荣誉殿堂</strong>
-          <span>这里专门看长期积累，不和单周周报混在一起，更适合展示历史称号、累计徽章、图鉴解锁和成员荣誉变化。</span>
+          <strong>荣誉殿堂</strong>
+          <span>这里专门看长期积累的称号、徽章和人物画像。点开任意荣誉卡片，还可以继续查看解锁条件、收藏榜和历史获得记录。</span>
         </div>
       </section>
 
-      <section className="console-analytics-overview-strip">
-        <article className="console-analytics-pill">
-          <span>已追踪周数</span>
-          <strong>{hall.trackedWeekIds.length} 周</strong>
-          <p>当前展示最近 {hall.trackedWeekIds.length} 个有真实记录的自然周。</p>
-        </article>
-
-        <article className="console-analytics-pill">
-          <span>图鉴解锁进度</span>
-          <strong>
-            {summary.unlockedCatalogCount} / {HONOR_CATALOG.length}
-          </strong>
-          <p>当前家庭已经点亮的荣誉条目数量，适合直接展示长期激励机制的完成度。</p>
-        </article>
-
-        <article className="console-analytics-pill">
-          <span>荣誉榜领先</span>
-          <strong>{summary.leader?.memberNickname ?? '暂无'}</strong>
-          <p>
-            累计徽章 {summary.totalBadges} 枚，累计称号 {summary.totalTitles} 次。
-          </p>
-        </article>
-      </section>
-
-      <section className="console-honors-layout">
-        <article className="console-chart-card">
-          <header className="console-chart-card__header console-chart-card__header--simple">
-            <div>
-              <p>历史称号时间线</p>
-              <h3>每一周谁拿到了什么称号</h3>
-              <small>保留历史周度结果，方便回看“某一周谁是冠军、谁是劳模、谁是主力担当”。</small>
-            </div>
-          </header>
-
-          <div className="console-honor-timeline">
-            {hall.weeklyHonorRolls.map((week) => (
-              <article key={week.weekId} className="console-honor-week">
-                <div className="console-honor-week__meta">
-                  <div>
-                    <span>{formatWeekLabel(week.weekId)}</span>
-                    <strong>{week.leaderNickname ? `${week.leaderNickname} 领跑` : '本周荣誉归档'}</strong>
-                  </div>
-                  <div className="console-honor-week__chips">
-                    <b>{week.totalScore} 分</b>
-                    <b>{week.totalEvents} 次打卡</b>
-                    <b>公平度 {week.fairnessScore}</b>
-                  </div>
-                </div>
-
-                <div className="console-honor-week__titles">
-                  {week.weeklyTitles.map((title) => {
-                    const visual = getHonorVisual(title.id)
-                    const Icon = visual.icon
-
-                    return (
-                      <article
-                        key={`${week.weekId}-${title.id}-${title.memberId ?? 'team'}`}
-                        className={`console-honor-card ${getHonorToneClass(title.tone)}`}
-                      >
-                        <div className={`console-honor-emblem ${getHonorToneClass(title.tone)} is-${visual.rarity}`}>
-                          <Icon className="h-4 w-4" />
-                          <b>{visual.emblem}</b>
-                        </div>
-
-                        <div className="console-honor-card__body">
-                          <div className="console-honor-card__head">
-                            <strong>{title.title}</strong>
-                            <span>{title.memberNickname ?? '全家协作'}</span>
-                          </div>
-                          <p>{title.description}</p>
-                        </div>
-                      </article>
-                    )
-                  })}
-                </div>
-              </article>
-            ))}
-          </div>
-        </article>
-
-        <article className="console-chart-card">
-          <header className="console-chart-card__header console-chart-card__header--simple">
-            <div>
-              <p>成员累计荣誉册</p>
-              <h3>谁拿过哪些徽章与称号</h3>
-              <small>不只展示本周拿到什么，还能看到一个成员过去总共点亮了多少荣誉，以及最近一次出现在哪一周。</small>
-            </div>
-          </header>
-
-          <div className="console-hall-members">
-            {hall.memberHall.map((member) => (
-              <article key={member.memberId} className="console-hall-member">
-                <div className="console-hall-member__head">
-                  <div>
-                    <strong>{member.memberNickname}</strong>
-                    <span>
-                      {member.totalBadgeEarned} 枚徽章 · {member.totalTitleEarned} 次称号
-                    </span>
-                  </div>
-
-                  {summary.leader?.memberId === member.memberId ? (
-                    <div className="console-hall-member__leader">
-                      <Trophy className="h-4 w-4" />
-                      荣誉榜领先
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="console-hall-member__stats">
-                  <div className="console-hall-member__stat">
-                    <Medal className="h-4 w-4" />
-                    <span>累计徽章</span>
-                    <strong>{member.totalBadgeEarned}</strong>
-                  </div>
-                  <div className="console-hall-member__stat">
-                    <Sparkles className="h-4 w-4" />
-                    <span>累计称号</span>
-                    <strong>{member.totalTitleEarned}</strong>
-                  </div>
-                </div>
-
-                <div className="console-hall-member__section">
-                  <h4>徽章收藏</h4>
-                  {member.badgeCounts.length > 0 ? (
-                    <div className="console-hall-collection">
-                      {member.badgeCounts.map((badge) => {
-                        const visual = getHonorVisual(badge.id)
-                        const Icon = visual.icon
-
-                        return (
-                          <article key={`${member.memberId}-${badge.id}`} className={`console-collection-item ${getHonorToneClass(badge.tone)}`}>
-                            <div className={`console-honor-emblem ${getHonorToneClass(badge.tone)} is-${visual.rarity}`}>
-                              <Icon className="h-4 w-4" />
-                              <b>{badge.count}x</b>
-                            </div>
-                            <div className="console-collection-item__body">
-                              <strong>{badge.label}</strong>
-                              <span>{getHonorRarityLabel(visual.rarity)}</span>
-                              <p>最近获得：{badge.lastEarnedWeekId ?? '暂无'}</p>
-                            </div>
-                          </article>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <div className="console-badge-wall__empty">还没有累计到个人徽章，继续打卡就会逐步点亮。</div>
-                  )}
-                </div>
-
-                <div className="console-hall-member__section">
-                  <h4>称号履历</h4>
-                  {member.titleCounts.length > 0 ? (
-                    <div className="console-hall-title-list">
-                      {member.titleCounts.map((title) => {
-                        const visual = getHonorVisual(title.id)
-                        const Icon = visual.icon
-
-                        return (
-                          <article key={`${member.memberId}-${title.id}`} className={`console-hall-title ${getHonorToneClass(title.tone)}`}>
-                            <div className="console-hall-title__head">
-                              <div className="console-honor-headline">
-                                <div className={`console-honor-emblem ${getHonorToneClass(title.tone)} is-${visual.rarity}`}>
-                                  <Icon className="h-4 w-4" />
-                                  <b>{visual.shortLabel}</b>
-                                </div>
-                                <strong>{title.label}</strong>
-                              </div>
-                              <mark>{title.count} 次</mark>
-                            </div>
-                            <p>最近一次出现在 {title.lastEarnedWeekId ?? '暂无记录'}</p>
-                          </article>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <div className="console-badge-wall__empty">历史称号还没解锁，继续参与就会开始沉淀。</div>
-                  )}
-                </div>
-              </article>
-            ))}
-          </div>
-        </article>
-      </section>
-
-      <section className="console-chart-card console-honor-catalog">
-        <header className="console-chart-card__header console-chart-card__header--simple">
-          <div>
-            <p>荣誉图鉴</p>
-            <h3>有哪些徽章、什么稀有度、如何解锁</h3>
-            <small>把“荣誉系统”从结果展示升级成可解释的游戏化机制，让评委一眼看懂这套激励设计。</small>
-          </div>
-        </header>
-
-        <div className="console-honor-rarity-strip">
-          <article className="console-honor-rarity-card is-gold">
-            <span>传说级</span>
-            <strong>高价值核心荣誉</strong>
-            <p>通常对应冠军、主力、高能输出，代表高贡献或高效率表现。</p>
+      {summary ? (
+        <section className="console-analytics-overview-strip">
+          <article className="console-analytics-pill">
+            <span>已解锁图鉴</span>
+            <strong>{summary.unlockedCatalogCount}/{HONOR_CATALOG.length}</strong>
+            <p>
+              {summary.unlockedCatalogCount >= HONOR_CATALOG.length
+                ? '已经全图鉴解锁。'
+                : `还差 ${HONOR_CATALOG.length - summary.unlockedCatalogCount} 项即可全解锁。`}
+            </p>
           </article>
-          <article className="console-honor-rarity-card is-violet">
-            <span>史诗级</span>
-            <strong>角色型能力荣誉</strong>
-            <p>强调任务类型优势和全面协作能力，适合塑造成员画像。</p>
+
+          <article className="console-analytics-pill">
+            <span>累计荣誉次数</span>
+            <strong>{summary.totalTitles + summary.totalBadges} 次</strong>
+            <p>包含周称号与成员徽章，是整段历史里沉淀下来的荣誉总量。</p>
           </article>
-          <article className="console-honor-rarity-card is-teal">
-            <span>稀有级 / 特别奖</span>
-            <strong>过程激励与系统状态</strong>
-            <p>既能鼓励稳定参与，也能解释系统对家庭整体协作的判断。</p>
+
+          <article className="console-analytics-pill">
+            <span>荣誉榜领先</span>
+            <strong>{summary.leader?.memberNickname ?? '暂无'}</strong>
+            <p>
+              {summary.leader
+                ? `已累计 ${summary.leader.totalTitleEarned + summary.leader.totalBadgeEarned} 次荣誉。`
+                : '完成更多打卡后，这里会出现收藏领先者。'}
+            </p>
           </article>
-        </div>
-
-        <div className="console-honor-catalog-grid">
-          {HONOR_CATALOG.map((item) => {
-            const Icon = item.icon
-            const isUnlocked =
-              item.kind === 'badge'
-                ? summary.unlockedBadgeIds.has(item.id)
-                : summary.unlockedTitleIds.has(item.id) || summary.unlockedBadgeIds.has(item.id)
-            const earnedCount =
-              item.kind === 'badge'
-                ? hall.memberHall.reduce(
-                    (sum, member) => sum + (member.badgeCounts.find((badge) => badge.id === item.id)?.count ?? 0),
-                    0,
-                  )
-                : hall.memberHall.reduce(
-                    (sum, member) => sum + (member.titleCounts.find((title) => title.id === item.id)?.count ?? 0),
-                    0,
-                  )
-
-            return (
-              <article
-                key={item.id}
-                className={`console-honor-catalog-card ${getHonorToneClass(item.tone)}${isUnlocked ? ' is-unlocked' : ' is-locked'}`}
-              >
-                <div className="console-honor-catalog-card__top">
-                  <div className={`console-honor-emblem ${getHonorToneClass(item.tone)} is-${item.rarity}`}>
-                    <Icon className="h-5 w-5" />
-                    <b>{item.emblem}</b>
-                  </div>
-
-                  <div className="console-honor-catalog-card__badges">
-                    <span>{getHonorRarityLabel(item.rarity)}</span>
-                    <span>{getHonorKindLabel(item.kind)}</span>
-                    <span>{isUnlocked ? `已解锁 ${earnedCount} 次` : '尚未解锁'}</span>
-                  </div>
-                </div>
-
-                <div className="console-honor-catalog-card__body">
-                  <div>
-                    <strong>{item.label}</strong>
-                    <p>{item.flavor}</p>
-                  </div>
-                  <article className="console-honor-catalog-card__rule">
-                    <span>解锁条件</span>
-                    <p>{item.condition}</p>
-                  </article>
-                </div>
-              </article>
-            )
-          })}
-        </div>
-      </section>
-
-      {hall.memberHall.every((member) => member.badgeCounts.length === 0 && member.titleCounts.length === 0) ? (
-        <article className="console-empty-panel">
-          {(() => {
-            const EmptyIcon = getHonorEmptyIcon()
-            return <EmptyIcon className="h-5 w-5" />
-          })()}
-          <strong>荣誉系统已就绪</strong>
-          <p>现在只差更多真实打卡记录，荣誉时间线、成员荣誉册和图鉴解锁进度就会逐步丰满起来。</p>
-        </article>
+        </section>
       ) : null}
+
+      {loading ? (
+        <article className="console-empty-panel">
+          <LoaderCircle className="h-5 w-5 animate-spin" />
+          <strong>正在加载荣誉殿堂</strong>
+          <p>系统正在整理历史称号、成员徽章和个人荣誉画像。</p>
+        </article>
+      ) : error ? (
+        <article className="console-empty-panel">
+          <strong>荣誉殿堂暂时不可用</strong>
+          <p>{error}</p>
+        </article>
+      ) : hall && summary ? (
+        <>
+          <HonorsTimelineSection
+            weeklyHonorRolls={hall.weeklyHonorRolls}
+            onSelectHonor={setSelectedHonorId}
+            onOpenWeekPoster={openWeekPoster}
+          />
+
+          <HonorsMembersSection
+            memberHall={hall.memberHall}
+            memberLookup={memberLookup}
+            onOpenMember={setSelectedMemberId}
+            onOpenPoster={openPoster}
+            onSelectHonor={setSelectedHonorId}
+          />
+
+          <HonorsCatalogSection
+            summary={summary}
+            raritySummary={raritySummary}
+            onSelectHonor={setSelectedHonorId}
+          />
+
+          <HonorsMemberProfileModal
+            profile={selectedMemberProfile}
+            memberRecord={selectedMemberProfile ? memberLookup.get(selectedMemberProfile.member.memberId) ?? null : null}
+            onClose={() => setSelectedMemberId(null)}
+            onSelectHonor={setSelectedHonorId}
+            onOpenPoster={openPoster}
+          />
+
+          <HonorsPosterModal
+            profile={selectedPosterProfile}
+            feedback={posterFeedback}
+            downloading={posterDownloading}
+            onClose={() => setSelectedPosterMemberId(null)}
+            onDownload={() => void handleDownloadPoster()}
+          />
+
+          <HonorsWeeklyPosterModal
+            week={selectedWeekPoster}
+            feedback={weeklyPosterFeedback}
+            downloading={weeklyPosterDownloading}
+            onClose={() => setSelectedWeekPosterId(null)}
+            onDownload={() => void handleDownloadWeeklyPoster()}
+          />
+
+          <HonorsDetailModal
+            detail={selectedHonorDetail}
+            onClose={() => setSelectedHonorId(null)}
+            onOpenMember={openMember}
+          />
+        </>
+      ) : (
+        <article className="console-empty-panel">
+          <strong>暂无荣誉，完成打卡解锁更多徽章吧！</strong>
+          <p>先去打卡面板累积本周记录，系统会在这里同步生成时间线、成员荣誉册和荣誉图鉴。</p>
+        </article>
+      )}
     </div>
   )
 }

@@ -303,6 +303,17 @@ export interface HonorsHallPayload {
         tone: 'gold' | 'violet' | 'teal' | 'rose'
       }>
     }>
+    memberSnapshots: Array<{
+      memberId: string
+      memberNickname: string
+      totalScore: number
+      eventCount: number
+      lightCount: number
+      coreCount: number
+      epicCount: number
+      titleIds: string[]
+      badgeIds: string[]
+    }>
   }>
   memberHall: Array<{
     memberId: string
