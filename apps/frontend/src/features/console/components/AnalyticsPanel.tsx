@@ -10,28 +10,25 @@ const rangeOptions: Array<{ value: AnalyticsRange; label: string }> = [
   { value: '12w', label: '近 12 周' },
 ]
 
-function getTaskTypeColor(taskType: TaskType) {
+function getTaskTypeMeta(taskType: TaskType) {
   if (taskType === 'LIGHT') {
-    return '#34d399'
+    return {
+      color: '#22c55e',
+      label: '+1 随手活',
+    }
   }
 
   if (taskType === 'CORE') {
-    return '#60a5fa'
+    return {
+      color: '#3b82f6',
+      label: '+3 主力活',
+    }
   }
 
-  return '#f59e0b'
-}
-
-function getTaskTypeLabel(taskType: TaskType) {
-  if (taskType === 'LIGHT') {
-    return '+1 随手活'
+  return {
+    color: '#f59e0b',
+    label: '+5 硬仗',
   }
-
-  if (taskType === 'CORE') {
-    return '+3 主力活'
-  }
-
-  return '+5 硬仗'
 }
 
 function formatWeekLabel(weekId: string) {
@@ -43,25 +40,57 @@ function formatWeekLabel(weekId: string) {
   return weekId.length > 6 ? weekId.slice(-6) : weekId
 }
 
+function buildParticipationHint(overview: AnalyticsOverviewPayload) {
+  const { activeMembers, participatingMembers } = overview.overviewMetrics
+
+  if (activeMembers <= 0) {
+    return '当前还没有可统计的家庭成员'
+  }
+
+  if (participatingMembers === 0) {
+    return `共 ${activeMembers} 人，暂时还没有人完成打卡`
+  }
+
+  if (participatingMembers === activeMembers) {
+    return '全员参与'
+  }
+
+  return `${activeMembers} 人中有 ${participatingMembers} 人参与打卡`
+}
+
+function buildLeaderHint(overview: AnalyticsOverviewPayload) {
+  const { totalEvents, leaderNickname, scoreSpread } = overview.overviewMetrics
+
+  if (totalEvents === 0 || !leaderNickname) {
+    return '完成打卡后会自动生成领先信息'
+  }
+
+  if (scoreSpread <= 0) {
+    return '当前积分非常接近，暂时没有明显差距'
+  }
+
+  return `领先第二名 ${scoreSpread} 分`
+}
+
 function buildStatCards(overview: AnalyticsOverviewPayload) {
   return [
     {
-      label: '已确认事件',
-      value: overview.overviewMetrics.totalEvents,
-      hint: `总积分 ${overview.overviewMetrics.totalScore} 分`,
+      label: '已确认打卡',
+      value: `${overview.overviewMetrics.totalEvents}次`,
+      hint: `对应总积分 ${overview.overviewMetrics.totalScore} 分`,
+      tone: 'violet',
     },
     {
       label: '参与成员',
-      value: overview.overviewMetrics.participatingMembers,
-      hint: `活跃成员 ${overview.overviewMetrics.activeMembers} 人`,
+      value: `${overview.overviewMetrics.participatingMembers}人`,
+      hint: buildParticipationHint(overview),
+      tone: 'emerald',
     },
     {
-      label: '当前领先',
+      label: '本周领先',
       value: overview.overviewMetrics.leaderNickname ?? '暂无',
-      hint:
-        overview.overviewMetrics.leaderNickname && overview.overviewMetrics.leaderScore > 0
-          ? `领先 ${overview.overviewMetrics.leaderScore} 分，分差 ${overview.overviewMetrics.scoreSpread} 分`
-          : '还没有形成明显领先',
+      hint: buildLeaderHint(overview),
+      tone: 'amber',
     },
   ] as const
 }
@@ -104,33 +133,73 @@ export function AnalyticsPanel() {
     }
   }, [getAnalyticsOverview, range])
 
-  const maxMemberScore = useMemo(
-    () => Math.max(...(overview?.fairnessCharts.memberScoreComparison.map((item) => item.totalScore) ?? [0])),
-    [overview],
-  )
-  const maxWeeklyScore = useMemo(
-    () => Math.max(...(overview?.trendCharts.weeklyTotals.map((item) => item.totalScore) ?? [0])),
+  const activeRangeLabel = rangeOptions.find((option) => option.value === range)?.label ?? '当前范围'
+  const statCards = useMemo(() => (overview ? buildStatCards(overview) : []), [overview])
+
+  const memberComparison = useMemo(
+    () =>
+      [...(overview?.fairnessCharts.memberScoreComparison ?? [])].sort((left, right) => {
+        if (right.totalScore !== left.totalScore) {
+          return right.totalScore - left.totalScore
+        }
+
+        return right.eventCount - left.eventCount
+      }),
     [overview],
   )
 
-  const activeRangeLabel = rangeOptions.find((option) => option.value === range)?.label ?? '当前范围'
-  const statCards = overview ? buildStatCards(overview) : []
+  const taskDistribution = useMemo(
+    () =>
+      [...(overview?.trendCharts.taskTypeDistribution ?? [])].sort((left, right) => {
+        if (right.count !== left.count) {
+          return right.count - left.count
+        }
+
+        return right.totalScore - left.totalScore
+      }),
+    [overview],
+  )
+
+  const weeklyTotals = overview?.trendCharts.weeklyTotals ?? []
+  const maxMemberScore = useMemo(() => Math.max(...memberComparison.map((item) => item.totalScore), 0), [memberComparison])
+  const maxTaskTypeCount = useMemo(() => Math.max(...taskDistribution.map((item) => item.count), 0), [taskDistribution])
+  const maxWeeklyScore = useMemo(() => Math.max(...weeklyTotals.map((item) => item.totalScore), 0), [weeklyTotals])
+
+  const hasTrendData = weeklyTotals.some((week) => week.totalEvents > 0)
+  const hasAnyData = Boolean(overview?.overviewMetrics.totalEvents)
+  const activeWeekCount = weeklyTotals.filter((week) => week.totalEvents > 0).length
+
+  const bestWeek = weeklyTotals.reduce<(typeof weeklyTotals)[number] | null>((best, current) => {
+    if (current.totalEvents <= 0) {
+      return best
+    }
+
+    if (!best || current.totalScore > best.totalScore) {
+      return current
+    }
+
+    return best
+  }, null)
+
+  const averageWeeklyScore =
+    activeWeekCount > 0 && overview ? Math.round(overview.overviewMetrics.totalScore / activeWeekCount) : 0
 
   return (
     <div className="console-page-stack">
       <section className="console-analytics-toolbar">
         <div className="console-analytics-toolbar__copy">
-          <strong>{activeRangeLabel}概览</strong>
-          <span>只保留关键数字和趋势。</span>
+          <strong>{activeRangeLabel}数据分析</strong>
+          <span>先看关键数字，再看成员对比和趋势结论。</span>
         </div>
 
-        <div className="console-range-switch">
+        <div className="console-range-switch" aria-label="分析时间范围">
           {rangeOptions.map((option) => (
             <button
               key={option.value}
               type="button"
               className={range === option.value ? 'is-active' : ''}
               onClick={() => setRange(option.value)}
+              disabled={loading}
             >
               {option.label}
             </button>
@@ -138,11 +207,33 @@ export function AnalyticsPanel() {
         </div>
       </section>
 
+      {overview ? (
+        <section className="console-analytics-overview-strip">
+          <article className="console-analytics-pill">
+            <span>统计周数</span>
+            <strong>{overview.includedWeekIds.length} 周</strong>
+            <p>当前筛选范围内纳入统计的时间窗口</p>
+          </article>
+
+          <article className="console-analytics-pill">
+            <span>人均积分</span>
+            <strong>{Math.round(overview.overviewMetrics.averageScorePerMember)} 分</strong>
+            <p>按参与成员计算的平均贡献水平</p>
+          </article>
+
+          <article className="console-analytics-pill">
+            <span>活跃周数</span>
+            <strong>{activeWeekCount} 周</strong>
+            <p>至少出现过 1 次打卡记录的自然周</p>
+          </article>
+        </section>
+      ) : null}
+
       {loading ? (
         <article className="console-empty-panel">
           <LoaderCircle className="h-5 w-5 animate-spin" />
           <strong>正在加载分析数据</strong>
-          <p>请稍等片刻。</p>
+          <p>请稍等片刻，图表会跟着时间范围一起刷新。</p>
         </article>
       ) : error ? (
         <article className="console-empty-panel">
@@ -153,7 +244,7 @@ export function AnalyticsPanel() {
         <>
           <section className="console-analytics-top">
             {statCards.map((card) => (
-              <article key={card.label} className="console-analytics-stat">
+              <article key={card.label} className={`console-analytics-stat console-analytics-stat--${card.tone}`}>
                 <span>{card.label}</span>
                 <strong>{card.value}</strong>
                 <p>{card.hint}</p>
@@ -165,26 +256,37 @@ export function AnalyticsPanel() {
             <article className="console-chart-card">
               <header className="console-chart-card__header console-chart-card__header--simple">
                 <div>
-                  <p>成员</p>
-                  <h3>积分对比</h3>
+                  <p>成员对比</p>
+                  <h3>积分排行榜</h3>
+                  <small>按积分降序展示，右侧同时保留打卡次数。</small>
                 </div>
               </header>
 
-              {overview.fairnessCharts.memberScoreComparison.length ? (
-                <div className="console-bar-chart">
-                  {overview.fairnessCharts.memberScoreComparison.map((item) => (
-                    <article key={item.memberId} className="console-bar-chart__row">
+              {memberComparison.length ? (
+                <div className="console-bar-chart console-bar-chart--grid">
+                  {memberComparison.map((item, index) => (
+                    <article
+                      key={item.memberId}
+                      className={`console-bar-chart__row${index === 0 ? ' is-top' : ''}`}
+                      title={`${item.nickname}：${item.totalScore}分，占总积分${item.sharePercent}%，打卡${item.eventCount}次`}
+                    >
                       <div className="console-bar-chart__meta">
-                        <strong>{item.nickname}</strong>
-                        <span>
-                          {item.totalScore} 分 · {item.eventCount} 次
-                        </span>
+                        <div className="console-bar-chart__identity">
+                          <em>#{index + 1}</em>
+                          <strong>{item.nickname}</strong>
+                        </div>
+
+                        <div className="console-bar-chart__stats">
+                          <span>{item.totalScore}分 · {item.eventCount}次打卡</span>
+                          <b>{item.sharePercent}% 占比</b>
+                        </div>
                       </div>
+
                       <div className="console-bar-chart__track">
                         <div
                           className="console-bar-chart__fill"
                           style={{
-                            width: `${maxMemberScore > 0 ? Math.max((item.totalScore / maxMemberScore) * 100, 12) : 12}%`,
+                            width: `${maxMemberScore > 0 ? Math.max((item.totalScore / maxMemberScore) * 100, 12) : 0}%`,
                           }}
                         />
                       </div>
@@ -193,7 +295,7 @@ export function AnalyticsPanel() {
                 </div>
               ) : (
                 <div className="console-chart-card__empty">
-                  <p>当前范围内还没有可比较的成员积分。</p>
+                  <p>暂无成员积分对比数据，完成打卡后这里会自动生成排行。</p>
                 </div>
               )}
             </article>
@@ -201,35 +303,53 @@ export function AnalyticsPanel() {
             <article className="console-chart-card">
               <header className="console-chart-card__header console-chart-card__header--simple">
                 <div>
-                  <p>任务</p>
-                  <h3>类型分布</h3>
+                  <p>类型分布</p>
+                  <h3>不同档位贡献情况</h3>
+                  <small>条长代表打卡次数，附带显示该档位贡献积分。</small>
                 </div>
               </header>
 
-              {overview.trendCharts.taskTypeDistribution.length ? (
+              {taskDistribution.length ? (
                 <div className="console-distribution">
-                  {overview.trendCharts.taskTypeDistribution.map((item) => (
-                    <article key={item.taskType} className="console-distribution__item">
-                      <div className="console-distribution__meta">
-                        <strong>{getTaskTypeLabel(item.taskType)}</strong>
-                        <span>{item.count} 次</span>
-                      </div>
-                      <div className="console-distribution__track">
-                        <div
-                          className="console-distribution__fill"
-                          style={{
-                            width: `${overview.overviewMetrics.totalEvents > 0 ? (item.count / overview.overviewMetrics.totalEvents) * 100 : 0}%`,
-                            background: getTaskTypeColor(item.taskType),
-                          }}
-                        />
-                      </div>
-                      <p>贡献 {item.totalScore} 分</p>
-                    </article>
-                  ))}
+                  {taskDistribution.map((item) => {
+                    const meta = getTaskTypeMeta(item.taskType)
+                    const sharePercent =
+                      overview.overviewMetrics.totalScore > 0
+                        ? Math.round((item.totalScore / overview.overviewMetrics.totalScore) * 100)
+                        : 0
+
+                    return (
+                      <article
+                        key={item.taskType}
+                        className="console-distribution__item"
+                        title={`${meta.label}：${item.count}次，贡献${item.totalScore}分，占总积分${sharePercent}%`}
+                      >
+                        <div className="console-distribution__meta">
+                          <div className="console-distribution__label">
+                            <strong>{meta.label}</strong>
+                            <b style={{ color: meta.color }}>{sharePercent}%</b>
+                          </div>
+                          <span>{item.count}次 · 贡献{item.totalScore}分</span>
+                        </div>
+
+                        <div className="console-distribution__track">
+                          <div
+                            className="console-distribution__fill"
+                            style={{
+                              width: `${maxTaskTypeCount > 0 ? Math.max((item.count / maxTaskTypeCount) * 100, 10) : 0}%`,
+                              background: `linear-gradient(90deg, ${meta.color}, ${meta.color}cc)`,
+                            }}
+                          />
+                        </div>
+
+                        <p>积分占比 {sharePercent}%</p>
+                      </article>
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="console-chart-card__empty">
-                  <p>当前范围内没有任务类型分布数据。</p>
+                  <p>暂无类型分布数据，完成打卡后即可查看各档位贡献情况。</p>
                 </div>
               )}
             </article>
@@ -240,29 +360,107 @@ export function AnalyticsPanel() {
               <div>
                 <p>周趋势</p>
                 <h3>积分变化</h3>
+                <small>观察每周积分变化，快速判断最近的活跃程度。</small>
               </div>
             </header>
 
-            {overview.trendCharts.weeklyTotals.length ? (
-              <div className="console-trend-chart">
-                {overview.trendCharts.weeklyTotals.map((week) => (
-                  <article key={week.weekId} className="console-trend-chart__item">
-                    <div className="console-trend-chart__bar">
-                      <div
-                        className="console-trend-chart__fill"
-                        style={{
-                          height: `${maxWeeklyScore > 0 ? Math.max((week.totalScore / maxWeeklyScore) * 100, 10) : 10}%`,
-                        }}
-                      />
-                    </div>
-                    <strong>{week.totalScore}</strong>
-                    <span>{formatWeekLabel(week.weekId)}</span>
+            {hasTrendData ? (
+              <>
+                <div className="console-trend-kpis">
+                  <article className="console-trend-kpis__item">
+                    <span>峰值周</span>
+                    <strong>{bestWeek ? formatWeekLabel(bestWeek.weekId) : '暂无'}</strong>
+                    <p>{bestWeek ? `${bestWeek.totalScore}分 · ${bestWeek.totalEvents}次打卡` : '等待数据生成'}</p>
                   </article>
-                ))}
+
+                  <article className="console-trend-kpis__item">
+                    <span>平均每周积分</span>
+                    <strong>{averageWeeklyScore} 分</strong>
+                    <p>只按有打卡记录的周数计算，更接近真实节奏</p>
+                  </article>
+
+                  <article className="console-trend-kpis__item">
+                    <span>当前统计周</span>
+                    <strong>{activeWeekCount} / {weeklyTotals.length}</strong>
+                    <p>前者为活跃周数，后者为当前筛选周期总周数</p>
+                  </article>
+                </div>
+
+                <div className="console-trend-chart">
+                  {weeklyTotals.map((week) => {
+                    const hasWeekData = week.totalEvents > 0
+                    const height = hasWeekData && maxWeeklyScore > 0
+                      ? Math.max((week.totalScore / maxWeeklyScore) * 100, 8)
+                      : 0
+
+                    return (
+                      <article
+                        key={week.weekId}
+                        className={`console-trend-chart__item${hasWeekData ? '' : ' is-empty'}`}
+                        title={
+                          hasWeekData
+                            ? `${formatWeekLabel(week.weekId)}：${week.totalScore}分，${week.totalEvents}次打卡`
+                            : `${formatWeekLabel(week.weekId)}：暂无数据`
+                        }
+                      >
+                        <span className="console-trend-chart__value">
+                          {hasWeekData ? `${week.totalScore}分` : '暂无数据'}
+                        </span>
+
+                        <div className="console-trend-chart__bar">
+                          <div
+                            className="console-trend-chart__fill"
+                            style={{
+                              height: `${height}%`,
+                            }}
+                          />
+                        </div>
+
+                        <strong>{formatWeekLabel(week.weekId)}</strong>
+                        <em>{hasWeekData ? `${week.totalEvents}次打卡` : '暂无记录'}</em>
+                      </article>
+                    )
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="console-chart-card__empty">
+                <p>暂无趋势数据，完成打卡后即可查看每周积分变化。</p>
+              </div>
+            )}
+          </section>
+
+          <section className="console-chart-card console-analytics-summary-card">
+            <header className="console-chart-card__header console-chart-card__header--simple">
+              <div>
+                <p>系统结论</p>
+                <h3>{hasAnyData ? '自动总结' : '等待数据生成'}</h3>
+              </div>
+            </header>
+
+            {hasAnyData ? (
+              <div className="console-analytics-summary">
+                <article className="console-analytics-summary__item">
+                  <em>01</em>
+                  <span>整体状态</span>
+                  <p>{overview.systemSummary.overall}</p>
+                </article>
+
+                <article className="console-analytics-summary__item">
+                  <em>02</em>
+                  <span>公平性评估</span>
+                  <p>{overview.systemSummary.fairness}</p>
+                </article>
+
+                <article className="console-analytics-summary__item">
+                  <em>03</em>
+                  <span>趋势提醒</span>
+                  <p>{overview.systemSummary.trend}</p>
+                </article>
               </div>
             ) : (
               <div className="console-chart-card__empty">
-                <p>当前范围内还没有周趋势数据。</p>
+                <p>暂无数据，完成打卡后这里会自动生成客观结论和参与提醒。</p>
               </div>
             )}
           </section>
@@ -270,7 +468,7 @@ export function AnalyticsPanel() {
       ) : (
         <article className="console-empty-panel">
           <strong>暂无分析数据</strong>
-          <p>等产生正式记录后，这里会自动出现统计结果。</p>
+          <p>等产生正式记录后，这里会自动出现统计结果和系统结论。</p>
         </article>
       )}
     </div>

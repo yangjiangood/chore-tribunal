@@ -1,0 +1,312 @@
+.ios-board {
+  --ios-font:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'PingFang SC',
+    'Helvetica Neue', sans-serif;
+  --ios-bg: #f3f3f0;
+  --ios-bg-soft: #fbfaf8;
+  --ios-surface: rgba(255, 255, 255, 0.78);
+  --ios-surface-strong: rgba(255, 255, 255, 0.9);
+  --ios-border: rgba(28, 28, 30, 0.08);
+  --ios-text: #1c1c1e;
+  --ios-text-soft: #52525b;
+  --ios-text-faint: #7c7c84;
+  --ios-accent: #475569;
+  --ios-accent-soft: rgba(71, 85, 105, 0.12);
+  --ios-gold: #b98a35;
+  --ios-shadow: 0 22px 48px rgba(17, 24, 39, 0.08);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: 18px;
+  overflow: hidden;
+  font-family: var(--ios-font);
+  color: var(--ios-text);
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.88), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(236, 233, 227, 0.8), transparent 24%),
+    linear-gradient(180deg, var(--ios-bg-soft) 0%, var(--ios-bg) 100%);
+}
+
+.ios-board::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent 34%),
+    radial-gradient(circle at 16% 18%, rgba(255, 255, 255, 0.26), transparent 16%);
+}
+
+.ios-board-toolbar,
+.ios-ranking-strip,
+.ios-member-card,
+.ios-log-footer,
+.ios-rule-modal__card,
+.ios-undo-toast {
+  border: 1px solid var(--ios-border);
+  box-shadow: var(--ios-shadow);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.ios-board-toolbar {
+  top: 18px;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.ios-board-toolbar__status,
+.ios-board-toolbar__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ios-board-toolbar__status span,
+.ios-ranking-strip__label,
+.ios-member-card__identity span,
+.ios-member-card__score small,
+.ios-ranking-pill small,
+.ios-rule-modal__header span,
+.ios-rule-modal__type small,
+.ios-rule-option small,
+.ios-log-pill span,
+.ios-log-pill small,
+.ios-undo-toast small {
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--ios-text-faint);
+}
+
+.ios-board-toolbar__status span,
+.ios-board-toolbar__actions button,
+.ios-rule-modal__cancel {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(248, 247, 244, 0.92);
+}
+
+.ios-board-toolbar__status span {
+  gap: 8px;
+}
+
+.ios-board-toolbar__status span strong {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--ios-text);
+}
+
+.ios-board-toolbar__status span svg {
+  color: var(--ios-accent);
+}
+
+.ios-board-toolbar__actions button,
+.ios-rule-modal__close,
+.ios-rule-modal__cancel,
+.ios-undo-toast button {
+  border: 0;
+  color: var(--ios-text);
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.ios-board-toolbar__actions button,
+.ios-undo-toast button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.ios-board-toolbar__actions button {
+  box-shadow: inset 0 0 0 1px rgba(28, 28, 30, 0.04);
+}
+
+.ios-board-toolbar__actions button:hover,
+.ios-task-button:hover,
+.ios-rule-filter:hover,
+.ios-rule-option:hover,
+.ios-verdict-modal__close:hover,
+.ios-verdict-modal__action:hover,
+.ios-rule-modal__close:hover,
+.ios-rule-modal__cancel:hover,
+.ios-undo-toast button:hover {
+  transform: translateY(-1px);
+}
+
+.ios-board-toolbar__actions button:focus-visible,
+.ios-task-button:focus-visible,
+.ios-rule-filter:focus-visible,
+.ios-rule-option:focus-visible,
+.ios-verdict-modal__close:focus-visible,
+.ios-verdict-modal__action:focus-visible,
+.ios-rule-modal__close:focus-visible,
+.ios-rule-modal__cancel:focus-visible,
+.ios-undo-toast button:focus-visible {
+  outline: 2px solid rgba(71, 85, 105, 0.32);
+  outline-offset: 2px;
+}
+
+.ios-board-main {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 18px;
+}
+
+.ios-board-toolbar,
+.ios-board-main,
+.ios-log-footer {
+  width: min(100%, 1560px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.ios-ranking-strip,
+.ios-member-card,
+.ios-log-footer,
+.ios-rule-modal__card {
+  border-radius: 30px;
+  background: linear-gradient(180deg, var(--ios-surface-strong), var(--ios-surface));
+}
+
+.ios-ranking-strip {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.ios-ranking-strip__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ios-ranking-strip__label,
+.ios-ranking-strip__meta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(243, 244, 246, 0.92);
+}
+
+.ios-ranking-strip__label {
+  gap: 8px;
+  color: var(--ios-text);
+}
+
+.ios-ranking-strip__label svg,
+.ios-log-footer__label svg {
+  color: var(--ios-gold);
+}
+
+.ios-ranking-strip__meta {
+  color: var(--ios-text-faint);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.ios-ranking-strip__track {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.ios-ranking-strip__track::-webkit-scrollbar {
+  display: none;
+}
+
+.ios-ranking-pill {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-width: 216px;
+  padding: 12px 14px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(28, 28, 30, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.ios-ranking-pill.is-leading {
+  border-color: rgba(185, 138, 53, 0.2);
+  background: linear-gradient(180deg, rgba(255, 252, 244, 0.96), rgba(255, 255, 255, 0.82));
+}
+
+.ios-ranking-pill__index {
+  color: var(--ios-text-faint);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.ios-ranking-pill__avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: rgba(244, 244, 245, 0.94);
+  color: var(--ios-text);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.ios-ranking-pill__body {
+  display: grid;
+  gap: 4px;
+}
+
+.ios-ranking-pill__body strong,
+.ios-rule-modal__type strong,
+.ios-rule-option strong,
+.ios-log-pill strong,
+.ios-undo-toast strong {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.ios-ranking-pill em,
+.ios-member-card__score strong,
+.ios-task-button em,
+.ios-rule-option em {
+  font-style: normal;
+  font-weight: 700;
+}
+
+.ios-ranking-pill em {
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -0.06em;
+  color: var(--ios-text);
+}
+
+.ios-empty-text {
+  margin: 0;
+  color: var(--ios-text-soft);
+  line-height: 1.7;
+}
+

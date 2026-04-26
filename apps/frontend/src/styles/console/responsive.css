@@ -1,0 +1,169 @@
+@media (max-width: 1180px) {
+  .console-v2__topbar,
+  .console-v2__headerline,
+  .console-page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .console-panel-tools {
+    justify-content: stretch;
+  }
+
+  .console-panel-tools > * {
+    width: 100%;
+  }
+
+  .console-analytics-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .console-v2__nav {
+    justify-content: flex-start;
+  }
+
+  .console-v2__actions {
+    justify-content: flex-start;
+  }
+
+  .console-v2__headline--inline {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .console-analytics-middle,
+  .console-analytics-overview-strip,
+  .console-analytics-summary,
+  .console-trend-kpis,
+  .console-settings-grid,
+  .console-history-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .console-history-table__head,
+  .console-history-row,
+  .console-history-table__footer {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 820px) {
+  .console-v2__body {
+    width: min(100%, calc(100% - 20px));
+    padding: 18px 0 28px;
+  }
+
+  .console-v2__topbar {
+    padding: 16px 14px;
+  }
+
+  .console-v2__brand {
+    gap: 12px;
+  }
+
+  .console-history-toolbar__meta {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .console-history-pagination {
+    width: 100%;
+  }
+
+  .console-history-pagination .console-page-button {
+    flex: 1 1 0;
+  }
+
+  .console-analytics-toolbar__copy {
+    gap: 6px;
+  }
+
+  .console-v2__tablist {
+    width: 100%;
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+
+  .console-v2__refresh {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .console-analytics-top,
+  .console-analytics-middle,
+  .console-analytics-overview-strip,
+  .console-analytics-summary,
+  .console-trend-kpis,
+  .console-settings-grid,
+  .console-members-grid,
+  .console-form-inline,
+  .console-tier-picker,
+  .console-avatar-picker,
+  .console-color-picker {
+    grid-template-columns: 1fr;
+  }
+
+  .console-history-table__head,
+  .console-history-row,
+  .console-history-table__footer {
+    grid-template-columns: 1fr;
+  }
+
+  .console-color-picker--rich {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .console-member-card {
+    min-height: auto;
+  }
+
+  .console-member-card__toolbar,
+  .console-member-card__stats,
+  .console-member-card__footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .console-member-card__actions {
+    width: auto;
+  }
+
+  .console-member-card__identity {
+    width: 100%;
+  }
+
+  .console-member-card__actions {
+    flex-wrap: wrap;
+  }
+
+  .console-rule-group__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .console-rule-group__tools {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .console-rule-group__meta {
+    justify-items: start;
+  }
+
+  .console-bar-chart__meta,
+  .console-distribution__meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .console-bar-chart__stats {
+    justify-content: flex-start;
+  }
+
+  .console-trend-chart {
+    grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  }
+}
+

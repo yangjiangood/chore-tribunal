@@ -171,6 +171,11 @@ export interface DeleteMemberPayload {
   memberId: string
 }
 
+export interface DeleteTaskRulePayload {
+  deleted: boolean
+  ruleId: string
+}
+
 export interface AnalyticsOverviewPayload {
   range: AnalyticsRange
   referenceWeekId: string
@@ -474,9 +479,7 @@ export const api = {
   createTaskRule(accessToken: string, payload: {
     taskType: TaskType
     label: string
-    scoreDelta: number
     sortOrder: number
-    isPinned: boolean
   }) {
     return request<TaskRule>('/api/v1/task-rules', {
       method: 'POST',
@@ -491,12 +494,18 @@ export const api = {
     }, accessToken)
   },
 
+  deleteTaskRule(accessToken: string, ruleId: string) {
+    return request<DeleteTaskRulePayload>(`/api/v1/task-rules/${ruleId}`, {
+      method: 'DELETE',
+    }, accessToken)
+  },
+
   updateTaskRule(accessToken: string, ruleId: string, payload: {
+    status?: TaskRuleStatus
     taskType?: TaskType
     label?: string
     scoreDelta?: number
     sortOrder?: number
-    isPinned?: boolean
   }) {
     return request<TaskRule>(`/api/v1/task-rules/${ruleId}`, {
       method: 'PATCH',

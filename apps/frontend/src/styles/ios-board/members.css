@@ -1,0 +1,293 @@
+.ios-member-grid {
+  display: grid;
+  flex: 1;
+  height: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 18px;
+  align-content: stretch;
+}
+
+.ios-member-card {
+  position: relative;
+  display: grid;
+  gap: 22px;
+  min-height: 0;
+  height: 100%;
+  padding: 28px 22px 22px;
+  overflow: hidden;
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease,
+    background-color 220ms ease;
+}
+
+.ios-member-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at top center, rgba(255, 255, 255, 0.52), transparent 26%),
+    linear-gradient(180deg, transparent 50%, rgba(255, 255, 255, 0.08));
+}
+
+.ios-member-card::before {
+  content: '';
+  position: absolute;
+  inset: auto -10% -24% -10%;
+  height: 180px;
+  border-radius: 999px;
+  background: var(--member-accent-soft);
+  filter: blur(48px);
+  opacity: 0.65;
+  pointer-events: none;
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.ios-member-card:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    0 30px 60px rgba(17, 24, 39, 0.12),
+    0 0 0 1px rgba(28, 28, 30, 0.04);
+}
+
+.ios-member-card:hover::before {
+  opacity: 0.88;
+  transform: scale(1.04);
+}
+
+.ios-member-card.is-active {
+  transform: translateY(-4px);
+  border-color: var(--member-accent-ring);
+  box-shadow:
+    0 32px 64px rgba(17, 24, 39, 0.14),
+    0 0 0 5px var(--member-accent-soft);
+}
+
+.ios-member-card__badge {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--member-badge-bg);
+  color: var(--ios-gold);
+  box-shadow: 0 12px 24px rgba(17, 24, 39, 0.12);
+  animation: ios-float-badge 2.8s ease-in-out infinite;
+}
+
+.ios-member-card__badge.is-fish {
+  background: rgba(120, 152, 188, 0.18);
+  color: #6f8eab;
+}
+
+.ios-member-card.is-leading {
+  border-color: var(--member-accent-ring);
+  background: linear-gradient(180deg, rgba(255, 252, 246, 0.94), rgba(255, 255, 255, 0.82));
+}
+
+.ios-member-card--empty {
+  align-content: center;
+}
+
+.ios-member-card--empty strong {
+  font-size: 30px;
+  letter-spacing: -0.04em;
+}
+
+.ios-member-card--empty p {
+  margin: 0;
+  color: var(--ios-text-soft);
+  line-height: 1.7;
+}
+
+.ios-member-card__hero,
+.ios-member-card__identity,
+.ios-task-button__copy {
+  display: grid;
+  justify-items: center;
+}
+
+.ios-member-card__hero {
+  gap: 18px;
+  padding-top: 10px;
+  text-align: center;
+}
+
+.ios-member-card__avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 110px;
+  height: 110px;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.76));
+  border: 4px solid var(--member-accent);
+  box-shadow:
+    0 18px 36px rgba(17, 24, 39, 0.1),
+    0 0 0 10px var(--member-accent-soft);
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+
+.ios-member-card:hover .ios-member-card__avatar,
+.ios-member-card.is-active .ios-member-card__avatar {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow:
+    0 22px 40px rgba(17, 24, 39, 0.12),
+    0 0 0 12px var(--member-accent-soft);
+}
+
+.ios-member-card__avatar span {
+  position: relative;
+  z-index: 1;
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--member-accent-text);
+}
+
+.ios-member-card__identity {
+  gap: 10px;
+}
+
+.ios-member-card__identity h2 {
+  margin: 0;
+  font-size: clamp(28px, 3vw, 40px);
+  line-height: 0.92;
+  letter-spacing: -0.05em;
+  font-weight: 800;
+  color: var(--ios-text);
+}
+
+.ios-member-card__identity small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--ios-text-faint);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ios-member-card__identity small span {
+  color: var(--member-accent-text);
+}
+
+.ios-member-card__score {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 0 0;
+}
+
+.ios-member-card__score strong {
+  font-size: clamp(72px, 8vw, 96px);
+  line-height: 0.86;
+  letter-spacing: -0.08em;
+  color: var(--member-accent-text);
+}
+
+.ios-member-card__score span {
+  padding-bottom: 14px;
+  color: color-mix(in srgb, var(--member-accent-text) 60%, #94a3b8 40%);
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.ios-member-card__actions {
+  display: grid;
+  gap: 14px;
+  margin-top: auto;
+}
+
+.ios-task-button {
+  display: grid;
+  place-items: center;
+  min-height: 86px;
+  padding: 14px 18px;
+  text-align: center;
+  border: 1px solid color-mix(in srgb, var(--member-accent) 28%, transparent);
+  border-radius: 20px;
+  color: var(--ios-text);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    filter 180ms ease,
+    background-color 180ms ease;
+}
+
+.ios-task-button:hover {
+  transform: translateY(-3px) scale(1.015);
+  box-shadow: 0 18px 32px rgba(17, 24, 39, 0.1);
+  filter: saturate(1.06);
+}
+
+.ios-task-button:active {
+  transform: scale(0.985);
+}
+
+.ios-task-button__copy {
+  gap: 8px;
+}
+
+.ios-task-button__copy small {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.ios-task-button__copy span {
+  font-size: 20px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+}
+
+.ios-task-button.is-light {
+  background: linear-gradient(180deg, rgba(229, 250, 241, 0.96), rgba(241, 252, 247, 0.92));
+  color: #027a55;
+}
+
+.ios-task-button.is-core {
+  background: linear-gradient(180deg, rgba(235, 242, 255, 0.96), rgba(244, 247, 255, 0.92));
+  color: #1c48dc;
+}
+
+.ios-task-button.is-epic {
+  background: linear-gradient(180deg, rgba(255, 242, 230, 0.98), rgba(255, 248, 241, 0.94));
+  color: #dd5c00;
+}
+
+.ios-task-button.is-light .ios-task-button__copy small {
+  color: #046c4e;
+}
+
+.ios-task-button.is-core .ios-task-button__copy small {
+  color: #1d4ed8;
+}
+
+.ios-task-button.is-epic .ios-task-button__copy small {
+  color: #c2410c;
+}
+
+.ios-rule-modal__type.is-light .ios-rule-modal__type-icon {
+  color: #3d7a57;
+}
+
+.ios-rule-modal__type.is-core .ios-rule-modal__type-icon {
+  color: #4b6078;
+}
+
+.ios-rule-modal__type.is-epic .ios-rule-modal__type-icon {
+  color: #9a6230;
+}
+

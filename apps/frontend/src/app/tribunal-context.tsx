@@ -298,6 +298,10 @@ export function TribunalProvider({ children }: PropsWithChildren) {
     return withSession((accessToken) => api.listMembers(accessToken, status))
   }
 
+  async function listTaskRules(status?: TaskRule['status']): Promise<TaskRule[]> {
+    return withSession((accessToken) => api.listTaskRules(accessToken, status))
+  }
+
   async function createMember(payload: { nickname: string; avatarValue: string; cardColor: string }) {
     setLoading(true)
     try {
@@ -394,16 +398,15 @@ export function TribunalProvider({ children }: PropsWithChildren) {
   async function createTaskRule(payload: {
     taskType: TaskRule['taskType']
     label: string
-    scoreDelta: number
     sortOrder: number
-    isPinned: boolean
   }) {
     setLoading(true)
     try {
       const created = await withSession((accessToken) =>
         api.createTaskRule(accessToken, {
-          ...payload,
+          taskType: payload.taskType,
           label: payload.label.trim(),
+          sortOrder: payload.sortOrder,
         }),
       )
       await refreshBootstrap()
@@ -430,19 +433,56 @@ export function TribunalProvider({ children }: PropsWithChildren) {
     }
   }
 
+  async function restoreTaskRule(ruleId: string) {
+    setLoading(true)
+    try {
+      const restored = await withSession((accessToken) =>
+        api.updateTaskRule(accessToken, ruleId, {
+          status: 'ACTIVE',
+        }),
+      )
+      await refreshBootstrap()
+      setNotice({ type: 'success', message: `规则「${restored.label}」已恢复启用。` })
+    } catch (error) {
+      handleApiError(error)
+      throw error
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function deleteTaskRule(ruleId: string) {
+    setLoading(true)
+    try {
+      await withSession((accessToken) => api.deleteTaskRule(accessToken, ruleId))
+      await refreshBootstrap()
+      setNotice({ type: 'success', message: '规则已从控制台移除。' })
+    } catch (error) {
+      handleApiError(error)
+      throw error
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  void deleteTaskRule
+
   async function updateTaskRule(ruleId: string, payload: {
+    status?: TaskRule['status']
     taskType?: TaskRule['taskType']
     label?: string
     scoreDelta?: number
     sortOrder?: number
-    isPinned?: boolean
   }) {
     setLoading(true)
     try {
       const updated = await withSession((accessToken) =>
         api.updateTaskRule(accessToken, ruleId, {
-          ...payload,
+          ...(payload.status ? { status: payload.status } : {}),
+          ...(payload.taskType ? { taskType: payload.taskType } : {}),
           ...(payload.label ? { label: payload.label.trim() } : {}),
+          ...(payload.scoreDelta !== undefined ? { scoreDelta: payload.scoreDelta } : {}),
+          ...(payload.sortOrder !== undefined ? { sortOrder: payload.sortOrder } : {}),
         }),
       )
       await refreshBootstrap()
@@ -508,6 +548,7 @@ export function TribunalProvider({ children }: PropsWithChildren) {
         generateVerdict,
         getLatestVerdict,
         listMembers,
+        listTaskRules,
         refreshBootstrap,
         createMember,
         updateMember,
@@ -517,6 +558,7 @@ export function TribunalProvider({ children }: PropsWithChildren) {
         createTaskRule,
         updateTaskRule,
         disableTaskRule,
+        restoreTaskRule,
         savePreferences,
         changePassword,
         dismissNotice: () => setNotice(null),

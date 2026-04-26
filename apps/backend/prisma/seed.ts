@@ -122,9 +122,8 @@ async function main() {
   for (const rule of getDefaultTaskRuleTemplates()) {
     await prisma.taskRule.upsert({
       where: {
-        familyId_taskType_label: {
+        familyId_label: {
           familyId: family.id,
-          taskType: rule.taskType,
           label: rule.label,
         },
       },

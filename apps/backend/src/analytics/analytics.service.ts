@@ -187,11 +187,11 @@ function buildOverallSummary(
   weeks: number,
 ) {
   if (overviewMetrics.totalEvents === 0) {
-    return 'No confirmed events in the selected range yet, so the system cannot form a stable conclusion.';
+    return '当前时间范围内还没有已确认打卡，系统暂时无法形成稳定结论。';
   }
 
   if (overviewMetrics.participatingMembers <= 1 && leader) {
-    return `${leader.nickname} carried all confirmed work in this range with ${leader.totalScore} points.`;
+    return `当前这段时间主要由${leader.nickname}承担家务，已确认贡献 ${leader.totalScore} 分。`;
   }
 
   if (
@@ -199,27 +199,27 @@ function buildOverallSummary(
     overviewMetrics.totalScore > 0 &&
     leader.totalScore / overviewMetrics.totalScore >= 0.5
   ) {
-    return `${overviewMetrics.totalEvents} confirmed events were recorded, and ${leader.nickname} contributed more than half of the total score.`;
+    return `当前共记录 ${overviewMetrics.totalEvents} 次已确认打卡，${leader.nickname}的贡献已经超过总积分的一半。`;
   }
 
   if (overviewMetrics.totalEvents < weeks * 2) {
-    return `${overviewMetrics.totalEvents} confirmed events were recorded, but the sample is still small and should be observed for a few more weeks.`;
+    return `当前共记录 ${overviewMetrics.totalEvents} 次已确认打卡，但样本还偏少，建议继续观察后续几周的变化。`;
   }
 
-  return `${overviewMetrics.totalEvents} confirmed events were recorded and ${overviewMetrics.participatingMembers} members contributed, so the workload is now measurable.`;
+  return `当前共记录 ${overviewMetrics.totalEvents} 次已确认打卡，已有 ${overviewMetrics.participatingMembers} 位成员参与，家务分工情况已经可以较清晰地衡量。`;
 }
 
 function buildFairnessSummary(memberStats: MemberAccumulator[]) {
   if (memberStats.length === 0) {
-    return 'There are no active members available for fairness analysis.';
+    return '当前没有可参与统计的活跃成员，暂时无法进行公平性评估。';
   }
 
   if (memberStats.every((member) => member.eventCount === 0)) {
-    return 'No member has a confirmed record yet, so fairness cannot be judged.';
+    return '目前还没有成员形成已确认记录，暂时无法判断家务分配是否均衡。';
   }
 
   if (memberStats.length === 1) {
-    return 'Only one active member is available, so a fairness comparison is not meaningful yet.';
+    return '当前只有 1 位活跃成员，暂时不具备有效的公平性对比条件。';
   }
 
   const leader = memberStats[0];
@@ -227,29 +227,29 @@ function buildFairnessSummary(memberStats: MemberAccumulator[]) {
   const spread = leader.totalScore - trailer.totalScore;
 
   if (spread <= 2) {
-    return `The score spread is only ${spread}, so workload distribution is relatively balanced.`;
+    return `当前成员间积分差只有 ${spread} 分，整体家务分配相对均衡。`;
   }
 
   if (trailer.eventCount === 0) {
-    return `${trailer.nickname} still has no confirmed record, so the workload is clearly imbalanced right now.`;
+    return `${trailer.nickname} 目前还没有已确认打卡，当前家务参与度存在比较明显的差距。`;
   }
 
   if (leader.totalScore >= trailer.totalScore + 5) {
-    return `${leader.nickname} leads ${trailer.nickname} by ${spread} points, so the next step should be to rebalance toward lower-participation members.`;
+    return `${leader.nickname} 目前领先 ${trailer.nickname} ${spread} 分，后续可以适当引导低参与成员多承担一些随手活。`;
   }
 
-  return `Members currently differ by ${spread} points, so the workload is not fully imbalanced but the gap is already visible.`;
+  return `当前成员之间已有 ${spread} 分差距，虽然还不算严重失衡，但差异已经开始显现。`;
 }
 
 function buildTrendSummary(weeklyTotals: WeeklyTotal[]) {
   const nonZeroWeeks = weeklyTotals.filter((item) => item.totalEvents > 0);
 
   if (nonZeroWeeks.length === 0) {
-    return 'There are no confirmed events in this range, so the trend line is still empty.';
+    return '当前时间范围内还没有已确认打卡，暂时看不到有效的趋势变化。';
   }
 
   if (nonZeroWeeks.length === 1) {
-    return 'Only one week contains confirmed records so far, so the trend is not stable yet.';
+    return '目前只有 1 个自然周存在已确认记录，趋势还不够稳定，建议继续观察。';
   }
 
   const first = weeklyTotals[0];
@@ -257,18 +257,18 @@ function buildTrendSummary(weeklyTotals: WeeklyTotal[]) {
   const delta = last.totalScore - first.totalScore;
 
   if (delta >= 3) {
-    return `The latest week is up ${delta} points versus the start of the range, so completion is trending upward.`;
+    return `最近一周比起始周提升了 ${delta} 分，整体完成度正在走高。`;
   }
 
   if (delta <= -3) {
-    return `The latest week is down ${Math.abs(delta)} points versus the start of the range, so completion is cooling off.`;
+    return `最近一周比起始周下降了 ${Math.abs(delta)} 分，最近的完成热度有回落趋势。`;
   }
 
   const peakWeek = weeklyTotals.reduce((best, current) =>
     current.totalScore > best.totalScore ? current : best,
   );
 
-  return `Recent weeks are relatively steady, with the peak landing in ${peakWeek.weekId} at ${peakWeek.totalScore} points.`;
+  return `最近几周整体比较平稳，其中 ${peakWeek.weekId} 表现最好，单周达到 ${peakWeek.totalScore} 分。`;
 }
 
 @Injectable()

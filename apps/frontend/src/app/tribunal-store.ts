@@ -10,6 +10,7 @@ import type {
   Preferences,
   SessionState,
   TaskRule,
+  TaskRuleStatus,
   TaskType,
   VerdictPayload,
 } from '../lib/api'
@@ -62,6 +63,7 @@ export interface TribunalContextValue {
   }) => Promise<VerdictPayload>
   getLatestVerdict: (weekId?: string) => Promise<VerdictPayload | null>
   listMembers: (status?: MemberStatus) => Promise<Member[]>
+  listTaskRules: (status?: TaskRuleStatus) => Promise<TaskRule[]>
   refreshBootstrap: (successMessage?: string) => Promise<void>
   createMember: (payload: { nickname: string; avatarValue: string; cardColor: string }) => Promise<void>
   updateMember: (memberId: string, payload: {
@@ -76,18 +78,17 @@ export interface TribunalContextValue {
   createTaskRule: (payload: {
     taskType: TaskRule['taskType']
     label: string
-    scoreDelta: number
     sortOrder: number
-    isPinned: boolean
   }) => Promise<void>
   updateTaskRule: (ruleId: string, payload: {
+    status?: TaskRuleStatus
     taskType?: TaskRule['taskType']
     label?: string
     scoreDelta?: number
     sortOrder?: number
-    isPinned?: boolean
   }) => Promise<void>
   disableTaskRule: (ruleId: string) => Promise<void>
+  restoreTaskRule: (ruleId: string) => Promise<void>
   savePreferences: (payload: PreferenceDraft) => Promise<void>
   changePassword: (payload: {
     currentPassword: string

@@ -104,9 +104,9 @@ interface MembersPanelProps {
   onDraftChange: (draft: MemberDraft) => void
   onCreate: (event: React.FormEvent<HTMLFormElement>) => void
   onUpdate: (memberId: string, payload: Partial<MemberDraft>) => void
-  onDisable: (memberId: string) => void
+  onDisable: (member: Member) => void
   onRestore: (memberId: string) => void
-  onDelete: (memberId: string) => void
+  onDelete: (member: Member) => void
 }
 
 function getMemberTone(cardColor: string) {
@@ -250,7 +250,7 @@ export function MembersPanel({
                       className="console-member-card__icon-action console-member-card__icon-action--danger"
                       aria-label={`删除${member.nickname}`}
                       title={`删除${member.nickname}`}
-                      onClick={() => onDelete(member.id)}
+                      onClick={() => onDelete(member)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -292,7 +292,7 @@ export function MembersPanel({
                       variant="ghost"
                       size="sm"
                       className="console-member-card__disable"
-                      onClick={() => onDisable(member.id)}
+                      onClick={() => onDisable(member)}
                     >
                       <UserX className="h-4 w-4" />
                       停用
@@ -384,80 +384,82 @@ function MemberModal({
             </div>
           </header>
 
-          <article className="console-member-preview">
-            <div
-              className="console-member-preview__avatar"
-              style={{
-                background: activeTone.tint,
-                boxShadow: `0 20px 40px ${activeTone.glow}`,
-                borderColor: activeTone.border,
-              }}
-            >
-              {draft.avatarValue || '🧑'}
-            </div>
-            <div className="console-member-preview__body">
-              <strong>{draft.nickname || '新成员'}</strong>
-              <p>{activeTone.label}</p>
-            </div>
-          </article>
+          <div className="console-modal__body">
+            <article className="console-member-preview">
+              <div
+                className="console-member-preview__avatar"
+                style={{
+                  background: activeTone.tint,
+                  boxShadow: `0 20px 40px ${activeTone.glow}`,
+                  borderColor: activeTone.border,
+                }}
+              >
+                {draft.avatarValue || '🙂'}
+              </div>
+              <div className="console-member-preview__body">
+                <strong>{draft.nickname || '新成员'}</strong>
+                <p>{activeTone.label}</p>
+              </div>
+            </article>
 
-          <div className="console-field">
-            <Label htmlFor={`${title}-nickname`}>成员名</Label>
-            <Input
-              id={`${title}-nickname`}
-              value={draft.nickname}
-              placeholder="例如：爸爸"
-              onChange={(event) => onDraftChange({ ...draft, nickname: event.target.value })}
-              className="console-dark-input"
-            />
-          </div>
+            <div className="console-field">
+              <Label htmlFor={`${title}-nickname`}>成员名</Label>
+              <Input
+                id={`${title}-nickname`}
+                value={draft.nickname}
+                placeholder="例如：爸爸"
+                onChange={(event) => onDraftChange({ ...draft, nickname: event.target.value })}
+                className="console-dark-input"
+              />
+            </div>
 
-          <div className="console-field">
-            <div className="console-field__split">
-              <Label>角色图标</Label>
-              <span>选择更直观的家庭角色</span>
+            <div className="console-field">
+              <div className="console-field__split">
+                <Label>角色图标</Label>
+                <span>选择更直观的家庭角色</span>
+              </div>
+              <div className="console-avatar-picker">
+                {avatarPresets.map((avatar) => (
+                  <button
+                    key={avatar}
+                    type="button"
+                    className={`console-avatar-picker__item ${draft.avatarValue === avatar ? 'is-selected' : ''}`}
+                    onClick={() => onDraftChange({ ...draft, avatarValue: avatar })}
+                  >
+                    {avatar}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="console-avatar-picker">
-              {avatarPresets.map((avatar) => (
-                <button
-                  key={avatar}
-                  type="button"
-                  className={`console-avatar-picker__item ${draft.avatarValue === avatar ? 'is-selected' : ''}`}
-                  onClick={() => onDraftChange({ ...draft, avatarValue: avatar })}
-                >
-                  {avatar}
-                </button>
-              ))}
-            </div>
-          </div>
 
-          <div className="console-field">
-            <div className="console-field__split">
-              <Label>卡片颜色</Label>
-              <span>更丰富的颜色会同步到首页成员卡</span>
-            </div>
-            <div className="console-color-picker console-color-picker--rich">
-              {memberPalette.map((palette) => (
-                <button
-                  key={palette.value}
-                  type="button"
-                  className={`console-color-picker__item ${draft.cardColor === palette.value ? 'is-selected' : ''}`}
-                  style={{
-                    background: palette.tint,
-                    borderColor: palette.border,
-                    color: palette.color,
-                    boxShadow:
-                      draft.cardColor === palette.value
-                        ? `0 0 0 2px rgba(255,255,255,0.94), 0 18px 34px ${palette.glow}`
-                        : `0 10px 22px ${palette.glow}`,
-                  }}
-                  onClick={() => onDraftChange({ ...draft, cardColor: palette.value })}
-                  aria-label={palette.label}
-                >
-                  <span />
-                  <small>{palette.label}</small>
-                </button>
-              ))}
+            <div className="console-field">
+              <div className="console-field__split">
+                <Label>卡片颜色</Label>
+                <span>更丰富的颜色会同步到首页成员卡</span>
+              </div>
+              <div className="console-color-picker console-color-picker--rich">
+                {memberPalette.map((palette) => (
+                  <button
+                    key={palette.value}
+                    type="button"
+                    className={`console-color-picker__item ${draft.cardColor === palette.value ? 'is-selected' : ''}`}
+                    style={{
+                      background: palette.tint,
+                      borderColor: palette.border,
+                      color: palette.color,
+                      boxShadow:
+                        draft.cardColor === palette.value
+                          ? `0 0 0 2px rgba(255,255,255,0.94), 0 18px 34px ${palette.glow}`
+                          : `0 10px 22px ${palette.glow}`,
+                    }}
+                    onClick={() => onDraftChange({ ...draft, cardColor: palette.value })}
+                    aria-label={palette.label}
+                  >
+                    <span />
+                    <small>{palette.label}</small>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

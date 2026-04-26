@@ -1,13 +1,5 @@
 import { Type } from 'class-transformer';
-import {
-  IsBoolean,
-  IsEnum,
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  MaxLength,
-} from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { TaskType } from '@prisma/client';
 
 export class CreateTaskRuleDto {
@@ -19,16 +11,8 @@ export class CreateTaskRuleDto {
   @MaxLength(50)
   label!: string;
 
-  @Type(() => Number)
-  @IsInt()
-  scoreDelta!: number;
-
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   sortOrder?: number;
-
-  @IsOptional()
-  @IsBoolean()
-  isPinned?: boolean;
 }

@@ -1,0 +1,64 @@
+:root {
+  --paper: #f7f1e8;
+  --ink: #171717;
+  --ink-soft: #49413a;
+  --ink-muted: #7f7266;
+  --verdict-red: #c63d2f;
+  --verdict-red-deep: #8d241a;
+  --panel: rgba(255, 249, 242, 0.72);
+  --panel-strong: rgba(255, 249, 242, 0.9);
+  --display-font: 'Archivo Expanded', sans-serif;
+  --body-font: 'Noto Sans SC', sans-serif;
+  --data-font: 'IBM Plex Sans Condensed', sans-serif;
+  font-family: var(--body-font);
+  color: var(--ink);
+  background: var(--paper);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  --console-canvas: #ede4d6;
+  --console-paper: #fff8ef;
+  --console-panel: rgba(255, 251, 245, 0.9);
+  --console-muted: rgba(215, 208, 198, 0.52);
+  --console-line: rgba(23, 23, 23, 0.88);
+  --console-line-soft: rgba(23, 23, 23, 0.2);
+  --console-ink: #1d1b19;
+  --console-ink-soft: #63584d;
+  --console-ink-faint: #8e7f70;
+  --console-accent: #2e5b7b;
+  --console-accent-deep: #153246;
+  --console-accent-ink: #f8f2eb;
+  --console-danger: #b54436;
+  --console-danger-deep: #7d2319;
+  --console-ring: rgba(46, 91, 123, 0.48);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(184, 137, 45, 0.16), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(46, 91, 123, 0.18), transparent 22%),
+    linear-gradient(180deg, #fbf7f0 0%, #f3eadb 100%);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+

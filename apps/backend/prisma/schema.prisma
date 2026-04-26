@@ -164,7 +164,7 @@ model TaskRule {
   family         Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
   taskEvents     TaskEvent[]
 
-  @@unique([familyId, taskType, label], map: "task_rules_family_id_task_type_label_key")
+  @@unique([familyId, label], map: "task_rules_family_id_label_key")
   @@index([familyId, status], map: "task_rules_family_id_status_idx")
   @@index([familyId, taskType, sortOrder], map: "task_rules_family_id_task_type_sort_order_idx")
   @@map("task_rules")

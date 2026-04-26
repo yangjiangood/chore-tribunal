@@ -1,15 +1,12 @@
 import { Type } from 'class-transformer';
-import {
-  IsBoolean,
-  IsEnum,
-  IsInt,
-  IsOptional,
-  IsString,
-  MaxLength,
-} from 'class-validator';
-import { TaskType } from '@prisma/client';
+import { IsEnum, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
+import { TaskRuleStatus, TaskType } from '@prisma/client';
 
 export class UpdateTaskRuleDto {
+  @IsOptional()
+  @IsEnum(TaskRuleStatus)
+  status?: TaskRuleStatus;
+
   @IsOptional()
   @IsEnum(TaskType)
   taskType?: TaskType;
@@ -28,8 +25,4 @@ export class UpdateTaskRuleDto {
   @Type(() => Number)
   @IsInt()
   sortOrder?: number;
-
-  @IsOptional()
-  @IsBoolean()
-  isPinned?: boolean;
 }

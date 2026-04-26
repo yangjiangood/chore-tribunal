@@ -1,0 +1,55 @@
+@keyframes ios-float-badge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.ios-undo-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 88px;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(420px, calc(100vw - 32px));
+  padding: 14px 16px;
+  border-radius: 999px;
+  transform: translateX(-50%);
+  background: rgba(24, 24, 27, 0.94);
+  color: #fafafa;
+}
+
+.ios-undo-toast > div {
+  display: grid;
+  gap: 6px;
+}
+
+.ios-undo-toast small {
+  color: rgba(228, 228, 231, 0.78);
+}
+
+.ios-undo-toast button {
+  min-height: 38px;
+  margin-left: auto;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fafafa;
+}
+
+@keyframes ios-log-scroll {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+

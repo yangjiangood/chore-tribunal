@@ -1,9 +1,5 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { Prisma, TaskRuleStatus } from '@prisma/client';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma, TaskRuleStatus, TaskType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTaskRuleDto } from './dto/create-task-rule.dto';
 import { DisableTaskRuleDto } from './dto/disable-task-rule.dto';
@@ -38,19 +34,21 @@ export class TaskRulesService {
   }
 
   async createTaskRule(familyId: string, dto: CreateTaskRuleDto) {
+    await this.ensureUniqueRuleLabel(familyId, dto.label);
+
     try {
       return await this.prisma.taskRule.create({
         data: {
           familyId,
           taskType: dto.taskType,
           label: dto.label,
-          scoreDelta: dto.scoreDelta,
+          scoreDelta: this.getScoreDeltaByTaskType(dto.taskType),
           sortOrder: dto.sortOrder ?? 0,
-          isPinned: dto.isPinned ?? false,
+          isPinned: false,
         },
       });
     } catch (error) {
-      this.rethrowConflict(error, '相同分类下的规则标签已存在');
+      this.rethrowConflict(error, '相同分值档位下已存在同名规则标签。');
       throw error;
     }
   }
@@ -60,17 +58,42 @@ export class TaskRulesService {
     ruleId: string,
     dto: UpdateTaskRuleDto,
   ) {
-    await this.findTaskRuleOrThrow(familyId, ruleId);
+    const taskRule = await this.findTaskRuleOrThrow(familyId, ruleId);
+    const nextLabel = dto.label?.trim() ?? taskRule.label;
+
+    const nextTaskType = dto.taskType;
+    const wantsTierChange = nextTaskType && nextTaskType !== taskRule.taskType;
+
+    if (taskRule.isPinned && wantsTierChange) {
+      throw new ConflictException({
+        code: 'CONFLICT',
+        message: '固定家务标签的档位不可修改。',
+      });
+    }
+
+    if (dto.label !== undefined || nextTaskType) {
+      await this.ensureUniqueRuleLabel(familyId, nextLabel, ruleId);
+    }
 
     try {
       return await this.prisma.taskRule.update({
         where: {
           id: ruleId,
         },
-        data: dto,
+        data: {
+          ...(dto.status ? { status: dto.status } : {}),
+          ...(nextTaskType
+            ? {
+                taskType: nextTaskType,
+                scoreDelta: this.getScoreDeltaByTaskType(nextTaskType),
+              }
+            : {}),
+          ...(dto.label !== undefined ? { label: nextLabel } : {}),
+          ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
+        },
       });
     } catch (error) {
-      this.rethrowConflict(error, '相同分类下的规则标签已存在');
+      this.rethrowConflict(error, '相同分值档位下已存在同名规则标签。');
       throw error;
     }
   }
@@ -81,7 +104,14 @@ export class TaskRulesService {
     dto: DisableTaskRuleDto,
   ) {
     void dto;
-    await this.findTaskRuleOrThrow(familyId, ruleId);
+    const taskRule = await this.findTaskRuleOrThrow(familyId, ruleId);
+
+    if (taskRule.isPinned) {
+      throw new ConflictException({
+        code: 'CONFLICT',
+        message: '固定家务标签不可停用。',
+      });
+    }
 
     return this.prisma.taskRule.update({
       where: {
@@ -107,7 +137,7 @@ export class TaskRulesService {
     if (existingCount !== ids.length) {
       throw new NotFoundException({
         code: 'NOT_FOUND',
-        message: '存在未找到的规则，无法重排',
+        message: '存在未找到的规则，无法重排。',
       });
     }
 
@@ -138,11 +168,35 @@ export class TaskRulesService {
     if (!taskRule) {
       throw new NotFoundException({
         code: 'NOT_FOUND',
-        message: '规则不存在',
+        message: '规则不存在。',
       });
     }
 
     return taskRule;
+  }
+
+  private async ensureUniqueRuleLabel(
+    familyId: string,
+    label: string,
+    excludeRuleId?: string,
+  ) {
+    const duplicate = await this.prisma.taskRule.findFirst({
+      where: {
+        familyId,
+        label,
+        ...(excludeRuleId ? { id: { not: excludeRuleId } } : {}),
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (duplicate) {
+      throw new ConflictException({
+        code: 'CONFLICT',
+        message: '当前家庭中已存在同名家务标签，请先修改原标签或更换名称。',
+      });
+    }
   }
 
   private rethrowConflict(error: unknown, message: string) {
@@ -155,5 +209,17 @@ export class TaskRulesService {
         message,
       });
     }
+  }
+
+  private getScoreDeltaByTaskType(taskType: TaskType) {
+    if (taskType === TaskType.LIGHT) {
+      return 1;
+    }
+
+    if (taskType === TaskType.CORE) {
+      return 3;
+    }
+
+    return 5;
   }
 }
