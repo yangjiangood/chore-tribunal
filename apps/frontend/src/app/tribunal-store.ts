@@ -14,6 +14,7 @@ import type {
   TaskRuleStatus,
   TaskType,
   VerdictPayload,
+  VerdictStreamHandlers,
 } from '../lib/api'
 import { resolveSoundEnabledPreference } from '../lib/sound-preference'
 
@@ -69,6 +70,14 @@ export interface TribunalContextValue {
     allowHumiliation?: boolean
     allowLabeling?: boolean
   }) => Promise<VerdictPayload>
+  generateVerdictStream: (payload: {
+    weekId?: string
+    persona?: string
+    toxicityLevel?: number
+    allowAttack?: boolean
+    allowHumiliation?: boolean
+    allowLabeling?: boolean
+  }, handlers?: VerdictStreamHandlers) => Promise<VerdictPayload>
   getLatestVerdict: (weekId?: string) => Promise<VerdictPayload | null>
   listMembers: (status?: MemberStatus) => Promise<Member[]>
   listTaskRules: (status?: TaskRuleStatus) => Promise<TaskRule[]>

@@ -147,6 +147,29 @@
   font-size: 15px;
 }
 
+.ios-verdict-modal__cursor {
+  display: inline-block;
+  width: 0.55em;
+  height: 1.1em;
+  margin-left: 2px;
+  vertical-align: -0.16em;
+  border-radius: 999px;
+  background: currentColor;
+  animation: verdict-cursor-blink 1s steps(1) infinite;
+}
+
+@keyframes verdict-cursor-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+
+  46%,
+  100% {
+    opacity: 0;
+  }
+}
+
 .ios-verdict-modal__footer {
   display: flex;
   align-items: center;
@@ -175,6 +198,11 @@
 .ios-verdict-modal__action--primary {
   background: rgba(24, 24, 27, 0.92);
   color: #fafafa;
+}
+
+.ios-verdict-modal__action--secondary.is-hidden {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .ios-rule-modal__card {

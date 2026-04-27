@@ -76,11 +76,41 @@ type ChatCompletionResponse = {
   }>;
 };
 
+type ChatCompletionStreamResponse = {
+  choices?: Array<{
+    delta?: {
+      content?:
+        | string
+        | Array<{
+            type?: string;
+            text?: string;
+          }>;
+    };
+  }>;
+};
+
 type ProviderConfig = {
   provider: string;
   baseUrl: string | null;
   apiKey: string | null;
   model: string | null;
+};
+
+type VerdictStreamCallbacks = {
+  onMeta?: (payload: {
+    weekId: string;
+    persona: string;
+  }) => void;
+  onDelta?: (payload: {
+    delta: string;
+    content: string;
+    source: 'AI';
+  }) => void;
+  onReplace?: (payload: {
+    content: string;
+    source: VerdictSource;
+    reason: string | null;
+  }) => void;
 };
 
 const REQUIRED_SECTIONS = [
@@ -159,21 +189,36 @@ function formatDistributionLabel(taskType: TaskType) {
   return '硬仗';
 }
 
-function extractContent(response: ChatCompletionResponse) {
-  const content = response.choices?.[0]?.message?.content;
-
+function flattenContentParts(
+  content:
+    | string
+    | Array<{
+        type?: string;
+        text?: string;
+      }>
+    | undefined,
+) {
   if (typeof content === 'string') {
-    return content.trim();
+    return content;
   }
 
   if (Array.isArray(content)) {
-    return content
-      .map((item) => item.text ?? '')
-      .join('')
-      .trim();
+    return content.map((item) => item.text ?? '').join('');
   }
 
   return '';
+}
+
+function extractContent(response: ChatCompletionResponse) {
+  return flattenContentParts(response.choices?.[0]?.message?.content).trim();
+}
+
+function extractStreamDeltaContent(response: ChatCompletionStreamResponse) {
+  return (
+    response.choices
+      ?.map((choice) => flattenContentParts(choice.delta?.content))
+      .join('') ?? ''
+  );
 }
 
 function isStructuredVerdict(content: string) {
@@ -213,6 +258,234 @@ export class VerdictsService {
   }
 
   async generateVerdict(
+    familyId: string,
+    dto: GenerateVerdictDto,
+  ): Promise<VerdictGenerationPayload> {
+    return this.generateVerdictInternal(familyId, dto);
+  }
+
+  async streamGenerateVerdict(
+    familyId: string,
+    dto: GenerateVerdictDto,
+    callbacks: VerdictStreamCallbacks,
+  ): Promise<VerdictGenerationPayload> {
+    return this.generateVerdictInternal(familyId, dto, callbacks);
+  }
+
+  private async generateVerdictInternal(
+    familyId: string,
+    dto: GenerateVerdictDto,
+    callbacks?: VerdictStreamCallbacks,
+  ): Promise<VerdictGenerationPayload> {
+    await this.boardService.confirmExpiredPendingEvents(familyId);
+
+    const context = await this.buildVerdictContext(familyId, dto);
+
+    callbacks?.onMeta?.({
+      weekId: context.weekId,
+      persona: context.persona,
+    });
+
+    const aiAttempt = await this.generateWithAi(
+      {
+        familyName: context.familyName,
+        persona: context.persona,
+        styleProfile: context.styleProfile,
+        promptPayload: context.promptPayload,
+      },
+      callbacks
+        ? {
+            onTextDelta: (delta, content) => {
+              callbacks.onDelta?.({
+                delta,
+                content,
+                source: VerdictSource.AI,
+              });
+            },
+          }
+        : undefined,
+    );
+
+    const generatedAt = new Date();
+    const fallbackContent = this.buildFallbackVerdict({
+      familyName: context.familyName,
+      persona: context.persona,
+      weekId: context.weekId,
+      weeklyStats: context.weeklyStats,
+      styleProfile: context.styleProfile,
+      failureReason: aiAttempt.failureReason,
+    });
+
+    const finalPayload =
+      aiAttempt.content && isStructuredVerdict(aiAttempt.content)
+        ? {
+            status: VerdictStatus.SUCCESS,
+            source: VerdictSource.AI,
+            content: aiAttempt.content,
+            safetyStatus: 'AI_SUCCESS',
+          }
+        : {
+            status: VerdictStatus.FALLBACK,
+            source: VerdictSource.FALLBACK_TEMPLATE,
+            content: fallbackContent,
+            safetyStatus: aiAttempt.failureReason ?? 'FALLBACK_TEMPLATE',
+          };
+
+    if (finalPayload.source !== VerdictSource.AI) {
+      callbacks?.onReplace?.({
+        content: fallbackContent,
+        source: VerdictSource.FALLBACK_TEMPLATE,
+        reason: finalPayload.safetyStatus,
+      });
+    }
+
+    if (finalPayload.source === VerdictSource.AI) {
+      this.logger.log(
+        `Verdict generated with AI for family=${familyId}, week=${context.weekId}, source=${finalPayload.source}`,
+      );
+    } else {
+      this.logger.warn(
+        `Verdict fallback triggered for family=${familyId}, week=${context.weekId}, reason=${finalPayload.safetyStatus}`,
+      );
+    }
+
+    return this.persistVerdictRecord({
+      familyId,
+      weekId: context.weekId,
+      persona: context.persona,
+      styleProfile: context.styleProfile,
+      promptPayload: context.promptPayload,
+      finalPayload,
+      generatedAt,
+    });
+  }
+
+  private async buildVerdictContext(
+    familyId: string,
+    dto: GenerateVerdictDto,
+  ) {
+    const family = await this.prisma.family.findUniqueOrThrow({
+      where: {
+        id: familyId,
+      },
+      select: {
+        id: true,
+        name: true,
+        timezone: true,
+        currentWeekId: true,
+        preference: true,
+        taskRules: {
+          where: {
+            status: 'ACTIVE',
+          },
+          orderBy: [{ taskType: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+          select: {
+            taskType: true,
+            label: true,
+            scoreDelta: true,
+            isPinned: true,
+          },
+        },
+      },
+    });
+
+    const weekId = dto.weekId ?? family.currentWeekId;
+    const styleProfile = {
+      toxicityLevel: clamp(
+        dto.toxicityLevel ??
+          family.preference?.verdictToxicityLevel ??
+          5,
+        0,
+        10,
+      ),
+      allowAttack: dto.allowAttack ?? family.preference?.allowAttack ?? true,
+      allowHumiliation:
+        dto.allowHumiliation ?? family.preference?.allowHumiliation ?? true,
+      allowLabeling:
+        dto.allowLabeling ?? family.preference?.allowLabeling ?? true,
+    } satisfies StyleProfile;
+    const persona =
+      dto.persona ?? family.preference?.verdictPersona ?? '无情裁判长';
+
+    const weeklyStats = await this.buildWeeklyStats(familyId, weekId);
+    const promptPayload = this.buildPromptPayload({
+      familyName: family.name,
+      timezone: family.timezone,
+      weekId,
+      persona,
+      styleProfile,
+      weeklyStats,
+      taskRules: family.taskRules,
+    });
+
+    return {
+      familyName: family.name,
+      weekId,
+      persona,
+      styleProfile,
+      weeklyStats,
+      promptPayload,
+    };
+  }
+
+  private async persistVerdictRecord(input: {
+    familyId: string;
+    weekId: string;
+    persona: string;
+    styleProfile: StyleProfile;
+    promptPayload: ReturnType<VerdictsService['buildPromptPayload']>;
+    finalPayload: {
+      status: VerdictStatus;
+      source: VerdictSource;
+      content: string;
+      safetyStatus: string | null;
+    };
+    generatedAt: Date;
+  }) {
+    const verdict = await this.prisma.verdictRecord.create({
+      data: {
+        familyId: input.familyId,
+        weekId: input.weekId,
+        persona: input.persona,
+        styleProfileJson: buildStyleDescriptor(input.styleProfile),
+        source: input.finalPayload.source,
+        status: input.finalPayload.status,
+        content: input.finalPayload.content,
+        inputSnapshotJson: input.promptPayload as Prisma.InputJsonValue,
+        safetyStatus: input.finalPayload.safetyStatus,
+        generatedAt: input.generatedAt,
+      },
+      select: {
+        id: true,
+        weekId: true,
+        status: true,
+        source: true,
+        content: true,
+        generatedAt: true,
+        safetyStatus: true,
+      },
+    });
+
+    this.realtimeService.publishVerdictGenerated(input.familyId, {
+      verdictId: verdict.id,
+      weekId: verdict.weekId,
+      status: verdict.status,
+      source: verdict.source,
+      generatedAt: verdict.generatedAt,
+    });
+
+    return {
+      verdictId: verdict.id,
+      weekId: verdict.weekId,
+      status: verdict.status,
+      source: verdict.source,
+      content: verdict.content,
+      generatedAt: verdict.generatedAt,
+      safetyStatus: verdict.safetyStatus,
+    };
+  }
+
+  private async legacyGenerateVerdict(
     familyId: string,
     dto: GenerateVerdictDto,
   ): Promise<VerdictGenerationPayload> {
@@ -620,7 +893,231 @@ export class VerdictsService {
     };
   }
 
-  private async generateWithAi(input: {
+  private async generateWithAi(
+    input: {
+      familyName: string;
+      persona: string;
+      styleProfile: StyleProfile;
+      promptPayload: ReturnType<VerdictsService['buildPromptPayload']>;
+    },
+    options?: {
+      onTextDelta?: (delta: string, content: string) => void;
+    },
+  ) {
+    if (!options?.onTextDelta) {
+      return this.legacyGenerateWithAi(input);
+    }
+
+    const providerConfig = this.resolveProviderConfig();
+    const baseUrl = providerConfig.baseUrl?.replace(/\/$/, '') ?? null;
+    const apiKey = providerConfig.apiKey;
+    const model = providerConfig.model;
+
+    if (!baseUrl || !apiKey || !model) {
+      this.logger.warn(
+        `LLM provider not configured. provider=${providerConfig.provider}, baseUrl=${Boolean(baseUrl)}, apiKey=${Boolean(apiKey)}, model=${Boolean(model)}`,
+      );
+      return {
+        content: null,
+        failureReason: `LLM_NOT_CONFIGURED:${providerConfig.provider}`,
+      };
+    }
+
+    const timeoutMs = Number(
+      this.configService.get<string>('LLM_TIMEOUT_MS') ?? 45000,
+    );
+    const maxRetries = Number(
+      this.configService.get<string>('LLM_MAX_RETRIES') ?? 2,
+    );
+
+    const systemPrompt = [
+      `你是${input.persona}，要基于真实家庭家务数据输出《家庭判决书》。`,
+      '必须使用以下五个一级标题，且顺序不可变：',
+      '1. 本周数据总览',
+      '2. 冠军表彰',
+      '3. 垫底调侃',
+      '4. 奖惩建议',
+      '5. 暖心结语',
+      '要求：',
+      '1. 全文 300-500 字，直接输出正文，不要解释过程。',
+      `2. 风格参数：${buildStyleDescriptor(input.styleProfile).textualSummary}`,
+      '3. 奖惩建议必须具体、能在家庭场景当天或当周落地。',
+      '4. 如本周无正式记录，也要按同样结构输出一份可读结果。',
+      '5. 允许幽默、有网感，但不要输出违法、暴力、仇恨内容。',
+    ].join('\n');
+
+    const userPrompt = [
+      `家庭信息：${JSON.stringify(input.promptPayload.familyMeta, null, 2)}`,
+      `风格配置：${JSON.stringify(input.promptPayload.styleProfile, null, 2)}`,
+      `本周家务数据：${JSON.stringify(input.promptPayload.weeklyStats, null, 2)}`,
+      `成员明细：${JSON.stringify(input.promptPayload.membersSummary, null, 2)}`,
+      `附加规则：${JSON.stringify(input.promptPayload.customRules, null, 2)}`,
+      '请直接输出可读的《家庭判决书》正文。',
+    ].join('\n\n');
+
+    for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+      this.logger.log(
+        `LLM stream started. provider=${providerConfig.provider}, model=${model}, attempt=${attempt}/${maxRetries}, timeoutMs=${timeoutMs}`,
+      );
+
+      try {
+        const response = await fetch(`${baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            temperature: 0.9,
+            stream: true,
+            messages: [
+              {
+                role: 'system',
+                content: systemPrompt,
+              },
+              {
+                role: 'user',
+                content: userPrompt,
+              },
+            ],
+          }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          this.logger.warn(
+            `LLM HTTP error. provider=${providerConfig.provider}, model=${model}, attempt=${attempt}/${maxRetries}, status=${response.status}`,
+          );
+          throw new Error(`LLM_HTTP_${response.status}`);
+        }
+
+        const content = await this.readChatCompletionStream(
+          response,
+          options.onTextDelta,
+        );
+
+        clearTimeout(timer);
+
+        if (!content) {
+          this.logger.warn(
+            `LLM returned empty streamed content. provider=${providerConfig.provider}, model=${model}, attempt=${attempt}/${maxRetries}`,
+          );
+          throw new Error('LLM_EMPTY_CONTENT');
+        }
+
+        this.logger.log(
+          `LLM stream succeeded. provider=${providerConfig.provider}, model=${model}, attempt=${attempt}/${maxRetries}, contentLength=${content.length}`,
+        );
+
+        return {
+          content,
+          failureReason: null,
+        };
+      } catch (error) {
+        clearTimeout(timer);
+
+        const failureReason =
+          error instanceof Error && error.name === 'AbortError'
+            ? 'LLM_TIMEOUT'
+            : error instanceof Error
+              ? error.message
+              : 'LLM_REQUEST_FAILED';
+
+        this.logger.warn(
+          `LLM stream failed. provider=${providerConfig.provider}, model=${model}, attempt=${attempt}/${maxRetries}, reason=${failureReason}`,
+        );
+
+        if (attempt === maxRetries) {
+          return {
+            content: null,
+            failureReason,
+          };
+        }
+      }
+    }
+
+    return {
+      content: null,
+      failureReason: 'LLM_REQUEST_FAILED',
+    };
+  }
+
+  private async readChatCompletionStream(
+    response: globalThis.Response,
+    onTextDelta: (delta: string, content: string) => void,
+  ) {
+    if (!response.body) {
+      throw new Error('LLM_STREAM_BODY_MISSING');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let content = '';
+
+    const consumeFrame = (rawFrame: string) => {
+      const lines = rawFrame
+        .split('\n')
+        .map((line) => line.trimEnd())
+        .filter(Boolean);
+      const data = lines
+        .filter((line) => line.startsWith('data:'))
+        .map((line) => line.slice(5).trimStart())
+        .join('\n')
+        .trim();
+
+      if (!data || data === '[DONE]') {
+        return data;
+      }
+
+      const payload = JSON.parse(data) as ChatCompletionStreamResponse;
+      const delta = extractStreamDeltaContent(payload);
+
+      if (delta) {
+        content += delta;
+        onTextDelta(delta, content);
+      }
+
+      return data;
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      buffer += decoder.decode(value ?? new Uint8Array(), {
+        stream: !done,
+      }).replace(/\r\n/g, '\n');
+
+      let boundary = buffer.indexOf('\n\n');
+      while (boundary !== -1) {
+        const frame = buffer.slice(0, boundary).trim();
+        buffer = buffer.slice(boundary + 2);
+
+        if (frame) {
+          const consumed = consumeFrame(frame);
+          if (consumed === '[DONE]') {
+            return content.trim();
+          }
+        }
+
+        boundary = buffer.indexOf('\n\n');
+      }
+
+      if (done) {
+        const remainder = buffer.trim();
+        if (remainder) {
+          consumeFrame(remainder);
+        }
+        return content.trim();
+      }
+    }
+  }
+
+  private async legacyGenerateWithAi(input: {
     familyName: string;
     persona: string;
     styleProfile: StyleProfile;
@@ -642,7 +1139,7 @@ export class VerdictsService {
     }
 
     const timeoutMs = Number(
-      this.configService.get<string>('LLM_TIMEOUT_MS') ?? 12000,
+      this.configService.get<string>('LLM_TIMEOUT_MS') ?? 45000,
     );
     const maxRetries = Number(
       this.configService.get<string>('LLM_MAX_RETRIES') ?? 2,

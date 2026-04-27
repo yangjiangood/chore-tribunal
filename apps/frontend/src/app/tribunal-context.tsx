@@ -17,6 +17,7 @@ import {
   type SessionState,
   type TaskRule,
   type VerdictPayload,
+  type VerdictStreamHandlers,
 } from '../lib/api'
 import { createClientId } from '../lib/id'
 import { clearSession, loadSession, saveSession } from '../lib/session'
@@ -290,6 +291,25 @@ export function TribunalProvider({ children }: PropsWithChildren) {
     }
   }
 
+  async function generateVerdictStream(
+    payload: {
+      weekId?: string
+      persona?: string
+      toxicityLevel?: number
+      allowAttack?: boolean
+      allowHumiliation?: boolean
+      allowLabeling?: boolean
+    },
+    handlers: VerdictStreamHandlers = {},
+  ): Promise<VerdictPayload> {
+    try {
+      return await withSession((accessToken) => api.streamGenerateVerdict(accessToken, payload, handlers))
+    } catch (error) {
+      handleApiError(error)
+      throw error
+    }
+  }
+
   async function getLatestVerdict(weekId?: string): Promise<VerdictPayload | null> {
     try {
       return await withSession((accessToken) => api.getLatestVerdict(accessToken, weekId))
@@ -552,6 +572,7 @@ export function TribunalProvider({ children }: PropsWithChildren) {
         getAnalyticsOverview,
         getHonorsHall,
         generateVerdict,
+        generateVerdictStream,
         getLatestVerdict,
         listMembers,
         listTaskRules,

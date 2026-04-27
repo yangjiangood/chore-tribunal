@@ -66,7 +66,7 @@ write_env_file() {
   local deepseek_api_key="${DEEPSEEK_API_KEY:-}"
   local moonshot_api_key="${MOONSHOT_API_KEY:-}"
   local zai_api_key="${ZAI_API_KEY:-}"
-  local llm_timeout_ms="${LLM_TIMEOUT_MS:-12000}"
+  local llm_timeout_ms="${LLM_TIMEOUT_MS:-45000}"
   local llm_max_retries="${LLM_MAX_RETRIES:-2}"
 
   cat >"$ENV_FILE" <<EOF

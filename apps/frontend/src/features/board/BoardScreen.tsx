@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTribunal } from '../../app/use-tribunal'
 import type { TaskType, VerdictPayload } from '../../lib/api'
@@ -7,7 +7,7 @@ import { LogStrip } from './components/LogStrip'
 import { MemberGrid } from './components/MemberGrid'
 import { RuleStrip } from './components/RuleStrip'
 import { UndoToast } from './components/UndoToast'
-import { VerdictModal } from './components/VerdictModal'
+import { VerdictModal, type VerdictModalPreview } from './components/VerdictModal'
 import { playBoardSuccessSound, playBoardTapSound, primeBoardAudio } from './board-sound'
 import { resolveSoundEnabledPreference } from '@/lib/sound-preference'
 
@@ -21,7 +21,7 @@ export function BoardScreen() {
     createScoreEvent,
     undoLastEvent,
     undoState,
-    generateVerdict,
+    generateVerdictStream,
     getLatestVerdict,
   } = useTribunal()
 
@@ -30,6 +30,8 @@ export function BoardScreen() {
   const [verdictOpen, setVerdictOpen] = useState(false)
   const [verdictLoading, setVerdictLoading] = useState(false)
   const [verdict, setVerdict] = useState<VerdictPayload | null>(null)
+  const [verdictPreview, setVerdictPreview] = useState<VerdictModalPreview | null>(null)
+  const verdictAnimationKeyRef = useRef(0)
 
   const rankingMap = useMemo(
     () => new Map((bootstrap?.currentBoardSnapshot.rankings ?? []).map((item) => [item.memberId, item])),
@@ -80,6 +82,85 @@ export function BoardScreen() {
     return resolveSoundEnabledPreference(bootstrap.preferences.soundEnabled)
   }, [bootstrap])
 
+  function nextVerdictAnimationKey() {
+    verdictAnimationKeyRef.current += 1
+    return verdictAnimationKeyRef.current
+  }
+
+  function syncPreviewWithVerdict(payload: VerdictPayload, animationKey = nextVerdictAnimationKey()) {
+    setVerdictPreview({
+      weekId: payload.weekId,
+      content: payload.content,
+      source: payload.source,
+      generatedAt: payload.generatedAt,
+      isStreaming: false,
+      animationKey,
+    })
+  }
+
+  async function startVerdictStream(currentWeekId: string) {
+    const animationKey = nextVerdictAnimationKey()
+
+    setVerdict(null)
+    setVerdictPreview({
+      weekId: currentWeekId,
+      content: '',
+      source: null,
+      generatedAt: null,
+      isStreaming: true,
+      animationKey,
+    })
+
+    const created = await generateVerdictStream(
+      {
+        weekId: currentWeekId,
+      },
+      {
+        onMeta: (event) => {
+          setVerdictPreview((current) => ({
+            weekId: event.weekId,
+            content: current?.content ?? '',
+            source: current?.source ?? null,
+            generatedAt: current?.generatedAt ?? null,
+            isStreaming: true,
+            animationKey: current?.animationKey ?? animationKey,
+          }))
+        },
+        onDelta: (event) => {
+          setVerdictPreview((current) => ({
+            weekId: current?.weekId ?? currentWeekId,
+            content: event.content,
+            source: event.source,
+            generatedAt: current?.generatedAt ?? null,
+            isStreaming: true,
+            animationKey: current?.animationKey ?? animationKey,
+          }))
+        },
+        onReplace: (event) => {
+          const replaceAnimationKey = nextVerdictAnimationKey()
+          setVerdictPreview((current) => ({
+            weekId: current?.weekId ?? currentWeekId,
+            content: event.content,
+            source: event.source,
+            generatedAt: current?.generatedAt ?? null,
+            isStreaming: false,
+            animationKey: replaceAnimationKey,
+          }))
+        },
+      },
+    )
+
+    setVerdict(created)
+    setVerdictPreview((current) => ({
+      weekId: created.weekId,
+      content: created.content,
+      source: created.source,
+      generatedAt: created.generatedAt,
+      isStreaming: false,
+      animationKey: current?.animationKey ?? animationKey,
+    }))
+  }
+
   if (!session) {
     return null
   }
@@ -92,6 +173,9 @@ export function BoardScreen() {
     }
 
     if (verdict?.weekId === currentWeekId) {
+      if (!verdictPreview) {
+        syncPreviewWithVerdict(verdict)
+      }
       setVerdictOpen(true)
       return
     }
@@ -103,9 +187,9 @@ export function BoardScreen() {
       const latest = await getLatestVerdict(currentWeekId)
       if (latest) {
         setVerdict(latest)
+        syncPreviewWithVerdict(latest)
       } else {
-        const created = await generateVerdict({ weekId: currentWeekId })
-        setVerdict(created)
+        await startVerdictStream(currentWeekId)
       }
     } finally {
       setVerdictLoading(false)
@@ -122,8 +206,7 @@ export function BoardScreen() {
     setVerdictLoading(true)
 
     try {
-      const created = await generateVerdict({ weekId: currentWeekId })
-      setVerdict(created)
+      await startVerdictStream(currentWeekId)
     } finally {
       setVerdictLoading(false)
     }
@@ -206,7 +289,7 @@ export function BoardScreen() {
       <VerdictModal
         open={verdictOpen}
         loading={verdictLoading}
-        verdict={verdict}
+        preview={verdictPreview}
         onClose={() => setVerdictOpen(false)}
         onRegenerate={() => void regenerateVerdict()}
       />

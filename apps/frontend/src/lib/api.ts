@@ -350,6 +350,29 @@ export interface VerdictPayload {
   safetyStatus: string | null
 }
 
+export interface VerdictStreamMetaEvent {
+  weekId: string
+  persona: string
+}
+
+export interface VerdictStreamDeltaEvent {
+  delta: string
+  content: string
+  source: 'AI'
+}
+
+export interface VerdictStreamReplaceEvent {
+  content: string
+  source: VerdictSource
+  reason: string | null
+}
+
+export interface VerdictStreamHandlers {
+  onMeta?: (event: VerdictStreamMetaEvent) => void
+  onDelta?: (event: VerdictStreamDeltaEvent) => void
+  onReplace?: (event: VerdictStreamReplaceEvent) => void
+}
+
 export interface SessionState {
   accessToken: string
   refreshToken: string
@@ -387,6 +410,136 @@ function buildQuery(params: Record<string, string | number | undefined>) {
 
   const text = query.toString()
   return text ? `?${text}` : ''
+}
+
+async function parseApiError(response: Response): Promise<ApiError> {
+  const contentType = response.headers.get('content-type') ?? ''
+
+  if (contentType.includes('application/json')) {
+    const payload = (await response.json()) as ApiSuccessResponse<unknown> | ApiErrorResponse
+
+    if (!payload.success) {
+      return new ApiError(payload.error.message, payload.error.code, payload.error.details)
+    }
+  }
+
+  const fallbackMessage = (await response.text()) || response.statusText || 'Request failed'
+  return new ApiError(fallbackMessage, 'HTTP_ERROR')
+}
+
+function parseEventStreamFrame(frame: string) {
+  let event = 'message'
+  const dataLines: string[] = []
+
+  for (const line of frame.split('\n')) {
+    const normalized = line.trimEnd()
+    if (normalized.startsWith('event:')) {
+      event = normalized.slice(6).trim()
+      continue
+    }
+
+    if (normalized.startsWith('data:')) {
+      dataLines.push(normalized.slice(5).trimStart())
+    }
+  }
+
+  if (!dataLines.length) {
+    return null
+  }
+
+  return {
+    event,
+    data: dataLines.join('\n'),
+  }
+}
+
+async function streamVerdictRequest(
+  path: string,
+  payload: Record<string, unknown>,
+  accessToken: string,
+  handlers: VerdictStreamHandlers = {},
+) {
+  const response = await fetch(makeUrl(path), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    throw await parseApiError(response)
+  }
+
+  if (!response.body) {
+    throw new ApiError('Stream body missing', 'STREAM_BODY_MISSING')
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let completedVerdict: VerdictPayload | null = null
+
+  while (true) {
+    const { done, value } = await reader.read()
+    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done }).replace(/\r\n/g, '\n')
+
+    let boundary = buffer.indexOf('\n\n')
+    while (boundary !== -1) {
+      const rawFrame = buffer.slice(0, boundary).trim()
+      buffer = buffer.slice(boundary + 2)
+
+      if (rawFrame) {
+        const parsed = parseEventStreamFrame(rawFrame)
+        if (parsed) {
+          const payloadText = parsed.data.trim()
+          const eventPayload = payloadText ? JSON.parse(payloadText) : null
+
+          switch (parsed.event) {
+            case 'meta':
+              if (eventPayload) {
+                handlers.onMeta?.(eventPayload as VerdictStreamMetaEvent)
+              }
+              break
+            case 'delta':
+              if (eventPayload) {
+                handlers.onDelta?.(eventPayload as VerdictStreamDeltaEvent)
+              }
+              break
+            case 'replace':
+              if (eventPayload) {
+                handlers.onReplace?.(eventPayload as VerdictStreamReplaceEvent)
+              }
+              break
+            case 'complete':
+              completedVerdict = (eventPayload as { verdict: VerdictPayload }).verdict
+              break
+            case 'error':
+              throw new ApiError(
+                (eventPayload as { message?: string }).message ?? 'Verdict stream failed',
+                (eventPayload as { code?: string }).code ?? 'VERDICT_STREAM_FAILED',
+              )
+            default:
+              break
+          }
+        }
+      }
+
+      boundary = buffer.indexOf('\n\n')
+    }
+
+    if (done) {
+      break
+    }
+  }
+
+  if (!completedVerdict) {
+    throw new ApiError('Verdict stream ended before completion', 'VERDICT_STREAM_INCOMPLETE')
+  }
+
+  return completedVerdict
 }
 
 async function request<T>(path: string, init: RequestInit = {}, accessToken?: string): Promise<T> {
@@ -531,6 +684,21 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }, accessToken)
+  },
+
+  streamGenerateVerdict(
+    accessToken: string,
+    payload: {
+      weekId?: string
+      persona?: string
+      toxicityLevel?: number
+      allowAttack?: boolean
+      allowHumiliation?: boolean
+      allowLabeling?: boolean
+    } = {},
+    handlers: VerdictStreamHandlers = {},
+  ) {
+    return streamVerdictRequest('/api/v1/verdicts/generate/stream', payload, accessToken, handlers)
   },
 
   getLatestVerdict(accessToken: string, weekId?: string) {
